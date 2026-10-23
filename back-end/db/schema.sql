@@ -176,11 +176,6 @@ INSERT INTO negocio.horarios (dia_semana, cerrado) VALUES
     (0, TRUE), (1, TRUE), (2, TRUE), (3, TRUE), (4, TRUE), (5, TRUE), (6, TRUE)
 ON CONFLICT (dia_semana) DO NOTHING;
 
--- Primer administrador (opcional). Descomenta, cambia los datos y ejecútalo una vez.
--- Requiere la extensión pgcrypto (disponible en Neon). El hash bcrypt que genera
--- lo puede verificar auth-service con passlib/bcrypt.
--- CREATE EXTENSION IF NOT EXISTS pgcrypto;
--- INSERT INTO auth.usuarios (nombre_completo, username, correo, password_hash, telefono)
--- VALUES ('Administrador', 'admin', 'admin@pasteleria.com',
---         crypt('CambiaEstaContrasena', gen_salt('bf', 12)), NULL)
--- ON CONFLICT (username) DO NOTHING;
+-- Primer administrador: NO se inserta aquí. servicio-auth lo crea al arrancar
+-- con ADMIN_USERNAME y ADMIN_PASSWORD del archivo back-end/.env (solo si no hay usuarios),
+-- porque la contraseña se guarda cifrada con el formato propio del servicio.

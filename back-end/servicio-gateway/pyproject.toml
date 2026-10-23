@@ -1,7 +1,15 @@
 [project]
 name = "servicio-gateway"
 version = "0.1.0"
+description = "Repostería: API Gateway (única entrada para el front-end)"
 requires-python = ">=3.15"
 dependencies = [
     "fastapi[standard]>=0.161.1",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.6",
 ]
+
+[tool.uv]
+# PyYAML (lo pide uvicorn[standard]) no tiene versión precompilada para Python 3.15 en Windows
+# y este proyecto no lo usa. Con este marcador imposible, uv lo omite y no intenta compilarlo.
+override-dependencies = ["pyyaml; sys_platform == 'never'"]
