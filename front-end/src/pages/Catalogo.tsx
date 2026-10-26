@@ -13,12 +13,22 @@ import {
   type Etiqueta,
   type Producto,
 } from '../lib/api'
+import { chipFiltro, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
 import { navegar, useRuta } from '../lib/router'
 import { useDatos } from '../lib/useDatos'
 
 const DISPONIBILIDADES: Disponibilidad[] = ['bajo pedido', 'stock', 'proximamente']
 const porId = <T extends { id: number }>(lista: T[]) => [...lista].sort((a, b) => a.id - b.id)
 const capitalizar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+
+const linea = 'mt-[26px] mb-3.5 w-full border-t border-tinto-oscuro/30'
+const subtitulo = 'mb-2 font-titulo text-[25px] leading-[1.2] font-bold text-tinto-texto capitalize'
+// Doble control deslizante: solo los círculos reciben el puntero
+const rangoInput =
+  'pointer-events-none absolute inset-0 m-0 w-full appearance-none bg-transparent [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-tinto-oscuro [&::-moz-range-thumb]:bg-beige [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-tinto-oscuro [&::-webkit-slider-thumb]:bg-beige'
+// Casilla cuadrada del diseño (21:298) con palomita dibujada en ::after
+const casilla =
+  "m-0 grid size-[17px] cursor-pointer appearance-none place-content-center border border-black bg-[#d9d9d9] checked:border-tinto checked:bg-tinto checked:after:h-[9px] checked:after:w-[5px] checked:after:-translate-y-px checked:after:rotate-45 checked:after:border-r-2 checked:after:border-b-2 checked:after:border-white checked:after:content-['']"
 
 /* PRODUCTOS (Figma 20:2) */
 export default function Catalogo() {
@@ -66,27 +76,27 @@ export default function Catalogo() {
   }
 
   return (
-    <div className="pagina">
-      <section className="hero hero--catalogo">
+    <div className={pagina}>
+      <section className={`${hero} h-[480px] overflow-hidden bg-[linear-gradient(180deg,rgba(155,61,79,0)_-17.8%,#300e15_100%)]`}>
         <Encabezado />
-        <p className="hero__antetitulo">Nuestro Catalogo</p>
-        <h1 className="hero__titulo hero__titulo--catalogo">
-          <span className="hero__linea hero__linea--chica">POSTRES QUE HACEN</span>
-          <span className="hero__linea">LA VIDA MAS DULCE</span>
+        <p className="absolute top-[136px] left-margen font-ui text-[17px] leading-[1.2] font-semibold text-white max-[760px]:static max-[760px]:mb-2.5">Nuestro Catalogo</p>
+        <h1 className={`${heroTitulo} top-[140px] h-[240px]`}>
+          <span className={heroLineaChica}>POSTRES QUE HACEN</span>
+          <span className={heroLinea}>LA VIDA MAS DULCE</span>
         </h1>
-        <img className="hero__imagen hero__imagen--catalogo" src={heroCatalogo} width={873} height={675} alt="" />
+        <img className="pointer-events-none absolute top-[92px] left-[calc(50%+60px)] h-auto w-[612px] max-w-none max-[1280px]:top-[110px] max-[1280px]:-right-5 max-[1280px]:left-auto max-[1280px]:w-[520px] max-[1000px]:top-[150px] max-[1000px]:w-[420px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroCatalogo} width={873} height={675} alt="" />
       </section>
 
-      <div className="catalogo">
-        <aside className="filtros" aria-label="Filtros">
-          <h2 className="filtros__titulo-categorias">Categorias</h2>
+      <div className="flex flex-1 items-stretch max-[760px]:flex-col">
+        <aside className="relative z-1 w-[290px] flex-none bg-beige pt-14 pr-[26px] pb-[60px] pl-[30px] shadow-[4px_-4px_18px_rgba(0,0,0,0.18)] max-[1000px]:w-[250px] max-[1000px]:pl-5 max-[760px]:w-full max-[760px]:px-5 max-[760px]:py-7 max-[760px]:shadow-none" aria-label="Filtros">
+          <h2 className="mb-3 pl-[26px] font-titulo text-[34px] leading-[1.2] font-bold">Categorias</h2>
           {categorias.error && <MensajeError texto={categorias.error} reintentar={categorias.recargar} />}
-          <ul className="filtros__categorias">
+          <ul className="flex flex-col gap-1.5">
             {categorias.datos?.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
-                  className="filtros__categoria"
+                  className="h-12 w-full rounded-lg bg-beige px-3.5 text-left font-titulo text-[28px] leading-none font-bold text-tinto capitalize transition-colors hover:bg-tinto/10 aria-pressed:bg-tinto aria-pressed:text-beige max-[1000px]:text-2xl"
                   aria-pressed={c.id === seleccionada?.id}
                   onClick={() => elegirCategoria(c)}
                 >
@@ -96,50 +106,52 @@ export default function Catalogo() {
             ))}
           </ul>
 
-          <hr className="filtros__linea" />
-          <h3 className="filtros__subtitulo">Precio</h3>
-          <div className="rango">
-            <div className="rango__pista">
+          <hr className={linea} />
+          <h3 className={subtitulo}>Precio</h3>
+          <div className="relative mt-[18px] mb-2 h-5 w-full">
+            <div className="absolute top-[9px] right-2.5 left-2.5 h-0.5 bg-tinto-oscuro/25">
               <div
-                className="rango__relleno"
+                className="absolute inset-y-0 bg-tinto-oscuro"
                 style={{ left: `${(min / precioMaximo) * 100}%`, right: `${100 - (max / precioMaximo) * 100}%` }}
               />
             </div>
             <input
+              className={rangoInput}
               type="range" min={0} max={precioMaximo} step={10} value={min}
               aria-label="Precio mínimo"
               onChange={(e) => setRango([Math.min(Number(e.target.value), max), max])}
             />
             <input
+              className={rangoInput}
               type="range" min={0} max={precioMaximo} step={10} value={max}
               aria-label="Precio máximo"
               onChange={(e) => setRango([min, Math.max(Number(e.target.value), min)])}
             />
           </div>
-          <div className="rango__valores">
+          <div className="flex justify-between font-texto text-[15px] leading-[18px]">
             <span>{formatoPrecio(min).replace('.00', '')}</span>
             <span>{formatoPrecio(max).replace('.00', '')}</span>
           </div>
 
-          <hr className="filtros__linea" />
-          <h3 className="filtros__subtitulo">Disponibilidad</h3>
-          <div className="filtros__checks">
+          <hr className={linea} />
+          <h3 className={subtitulo}>Disponibilidad</h3>
+          <div className="flex flex-col gap-2.5 pt-2.5 pl-4">
             {DISPONIBILIDADES.map((d) => (
-              <label key={d} className="filtros__check">
-                <input type="checkbox" checked={disp.includes(d)} onChange={() => setDisp(alternar(disp, d))} />
+              <label key={d} className="flex cursor-pointer items-center gap-3.5 font-texto text-base leading-5">
+                <input type="checkbox" className={casilla} checked={disp.includes(d)} onChange={() => setDisp(alternar(disp, d))} />
                 {ETIQUETA_DISPONIBILIDAD[d]}
               </label>
             ))}
           </div>
 
-          <hr className="filtros__linea" />
-          <h3 className="filtros__subtitulo">Etiquetas</h3>
-          <div className="filtros__chips">
+          <hr className={linea} />
+          <h3 className={subtitulo}>Etiquetas</h3>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-[9px] pt-3">
             {etiquetas.datos?.map((e) => (
               <button
                 key={e.id}
                 type="button"
-                className="filtros__chip"
+                className={chipFiltro}
                 aria-pressed={tags.includes(e.nombre)}
                 onClick={() => setTags(alternar(tags, e.nombre))}
               >
@@ -147,18 +159,18 @@ export default function Catalogo() {
               </button>
             ))}
           </div>
-          <hr className="filtros__linea" />
+          <hr className={linea} />
         </aside>
 
-        <main className="catalogo__contenido">
-          <h2 className="catalogo__titulo">{seleccionada?.nombre ?? 'Catálogo'}</h2>
+        <main className="flex-1 pt-9 pr-8 pb-[100px] pl-9 max-[760px]:px-4 max-[760px]:pt-7 max-[760px]:pb-[72px]">
+          <h2 className="mb-[30px] font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-6 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Catálogo'}</h2>
           {(categorias.cargando || productos.cargando) && <Cargando />}
           {productos.error && <MensajeError texto={productos.error} reintentar={productos.recargar} />}
           {categorias.datos?.length === 0 && <Vacio texto="Todavía no hay categorías." />}
           {!productos.cargando && productos.datos && filtrados.length === 0 && seleccionada && (
             <Vacio texto="No hay postres con esos filtros." />
           )}
-          <div className="catalogo__grid">
+          <div className="grid grid-cols-[repeat(auto-fill,260px)] gap-x-5 gap-y-[22px] max-[760px]:justify-center">
             {filtrados.map((p) => <TarjetaPostre key={p.id} producto={p} />)}
           </div>
         </main>

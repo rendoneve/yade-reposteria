@@ -20,4 +20,14 @@ class Settings(BaseSettings):
     internal_api_key: str  # clave para llamadas entre servicios
     actividad_service_url: str = "http://127.0.0.1:8005"
 
+    # Bucket de imágenes (cualquier almacenamiento compatible con S3).
+    # Mientras S3_BUCKET esté vacío, POST /imagenes responde 503.
+    s3_endpoint_url: str = ""  # vacío = AWS S3
+    s3_region: str = "auto"
+    s3_bucket: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_public_url: str = ""  # URL pública del bucket; las imágenes quedan en <s3_public_url>/<clave>
+    s3_prefijo: str = "imagenes"
+
 settings = Settings()

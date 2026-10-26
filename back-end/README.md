@@ -30,6 +30,25 @@ con un *schema* por servicio. El front-end solo habla con el **gateway**.
    O uno solo: `cd servicio-catalogo; uv run fastapi dev app/main.py --port 8002`
 5. Revisa `http://localhost:8000/health`: todos deben decir `ok`.
 
+## Imágenes (bucket)
+
+Las imágenes de categorías y productos se suben desde el panel con el componente `SubirImagen`:
+el front-end manda el archivo a `POST /api/imagenes` (servicio-catalogo), el servicio lo guarda en el
+bucket y devuelve `{ "url": "..." }`, que es lo que se guarda en `imagen_url`.
+
+Funciona con cualquier almacenamiento **compatible con S3**. Para conectarlo, llena en `back-end/.env`:
+
+| Variable | Qué va |
+|---|---|
+| `S3_ENDPOINT_URL` | Endpoint S3 del proveedor (vacío si es AWS S3) |
+| `S3_REGION` | Región (`auto` si el proveedor no usa regiones) |
+| `S3_BUCKET` | Nombre del bucket |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Credenciales con permiso de escritura |
+| `S3_PUBLIC_URL` | URL pública del bucket, sin `/` al final. La imagen queda en `<S3_PUBLIC_URL>/imagenes/<id>.<ext>` |
+
+El bucket debe permitir **lectura pública** para que el sitio pueda mostrar las imágenes.
+Mientras `S3_BUCKET` esté vacío, `POST /api/imagenes` responde 503. Formatos: JPG, PNG, WEBP, GIF y AVIF, de hasta 5 MB.
+
 Documentación interactiva (Swagger) de cada servicio: `http://localhost:800X/docs`.
 Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 (`POST /auth/login`), copia `access_token` y pégalo en el botón **Authorize** del servicio.

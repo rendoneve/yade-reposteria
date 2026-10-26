@@ -1,7 +1,6 @@
-import './styles/publico.css'
-import './styles/admin.css'
 import { Cargando } from './components/Estado'
 import { ProveedorSesion, useSesion } from './lib/auth'
+import { fondoLogin } from './lib/estilos'
 import { useRuta } from './lib/router'
 import AcercaDe from './pages/AcercaDe'
 import AgendarCita from './pages/AgendarCita'
@@ -35,7 +34,7 @@ function Rutas() {
 
 function RutasAdmin({ path }: { path: string }) {
   const { usuario, cargando } = useSesion()
-  if (cargando) return <div className="login"><Cargando /></div>
+  if (cargando) return <div className={fondoLogin}><Cargando /></div>
   if (!usuario) return <Login />
   if (path.startsWith('/admin/productos')) return <Productos />
   switch (path) {

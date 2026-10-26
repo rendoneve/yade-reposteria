@@ -43,11 +43,13 @@ export async function api<T>(ruta: string, { method = 'GET', body, params }: Opc
   const headers: Record<string, string> = {}
   const token = leerToken()
   if (token) headers.Authorization = `Bearer ${token}`
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // Con FormData el navegador pone el Content-Type (multipart con su boundary)
+  const esArchivo = body instanceof FormData
+  if (body !== undefined && !esArchivo) headers['Content-Type'] = 'application/json'
 
   let r: Response
   try {
-    r = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+    r = await fetch(url, { method, headers, body: esArchivo ? body : body === undefined ? undefined : JSON.stringify(body) })
   } catch {
     throw new ErrorApi(0, 'No se pudo conectar con el servidor. ¿Está corriendo el backend?')
   }
@@ -74,6 +76,29 @@ function mensajeDeError(datos: unknown): string | null {
     }).join(' · ')
   }
   return null
+}
+
+/* ---------- Imágenes ---------- */
+
+export const TIPOS_IMAGEN = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
+export const MAX_BYTES_IMAGEN = 5 * 1024 * 1024
+
+/* Sube la imagen al bucket (POST /api/imagenes, servicio-catalogo) y devuelve su URL pública. */
+export async function subirImagen(archivo: File): Promise<string> {
+  const datos = new FormData()
+  datos.append('archivo', archivo)
+  const { url } = await api<{ url: string }>('/imagenes', { method: 'POST', body: datos })
+  return url
+}
+
+/* Cambio que entrega <SubirImagen>: undefined = sin cambios, null = se quitó, File = nueva.
+   Devuelve el valor para `imagen_url` (subiendo el archivo si hace falta). */
+export type CambioImagen = File | null | undefined
+
+export async function resolverImagen(cambio: CambioImagen, actual: string | null): Promise<string | null> {
+  if (cambio === undefined) return actual
+  if (cambio === null) return null
+  return subirImagen(cambio)
 }
 
 /* ---------- Tipos (coinciden con los esquemas del backend) ---------- */

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import Encabezado from '../components/Encabezado'
 import Pie from '../components/Pie'
 import { api, ETIQUETA_SERVICIO, formatoFecha, type Producto, type TipoServicio } from '../lib/api'
+import { botonOscuro, campoPublico, controlPublico, degradadoHero, hero, heroLinea, heroTitulo, pagina, tarjetaCrema } from '../lib/estilos'
 import { useRuta } from '../lib/router'
 import { useDatos } from '../lib/useDatos'
 
@@ -22,6 +23,8 @@ function mananaALas(hora: number) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`
 }
+
+const tarjetaForm = `${tarjetaCrema} mx-auto flex max-w-[620px] flex-col gap-4 px-[34px] py-8 max-[560px]:px-5`
 
 /* Formulario de cita (no está en Figma; usa los mismos estilos del sitio). */
 export default function AgendarCita() {
@@ -64,53 +67,53 @@ export default function AgendarCita() {
   const detallesIniciales = producto.datos ? `Me interesa: ${producto.datos.nombre}` : ''
 
   return (
-    <div className="pagina">
-      <section className="hero hero--corto">
+    <div className={pagina}>
+      <section className={`${hero} ${degradadoHero} h-[280px]`}>
         <Encabezado />
-        <h1 className="hero__titulo hero__titulo--corto">
-          <span className="hero__linea">Agendar cita</span>
+        <h1 className={`${heroTitulo} top-[110px] h-[110px]`}>
+          <span className={heroLinea}>Agendar cita</span>
         </h1>
       </section>
-      <main className="formulario-pagina">
+      <main className="flex-1 px-margen pt-[60px] pb-[100px] max-[760px]:px-4 max-[760px]:pt-10 max-[760px]:pb-20">
         {confirmada ? (
-          <div className="tarjeta-form tarjeta-form--ok" role="status">
-            <h2>¡Listo! Tu cita quedó agendada</h2>
-            <p>Te esperamos el {formatoFecha(confirmada.fecha)}. Si necesitas cambiarla, contáctanos por WhatsApp.</p>
+          <div className={tarjetaForm} role="status">
+            <h2 className="font-titulo text-[34px] leading-[1.1] font-bold text-exito">¡Listo! Tu cita quedó agendada</h2>
+            <p className="font-texto text-lg leading-normal">Te esperamos el {formatoFecha(confirmada.fecha)}. Si necesitas cambiarla, contáctanos por WhatsApp.</p>
           </div>
         ) : (
-          <form className="tarjeta-form" onSubmit={enviar} key={detallesIniciales}>
-            <label>
+          <form className={tarjetaForm} onSubmit={enviar} key={detallesIniciales}>
+            <label className={campoPublico}>
               Fecha y hora
-              <input name="fecha" type="datetime-local" required defaultValue={mananaALas(11)} />
+              <input className={controlPublico} name="fecha" type="datetime-local" required defaultValue={mananaALas(11)} />
             </label>
-            <label>
+            <label className={campoPublico}>
               Nombre
-              <input name="nombre" required maxLength={100} autoComplete="name" />
+              <input className={controlPublico} name="nombre" required maxLength={100} autoComplete="name" />
             </label>
-            <div className="tarjeta-form__fila">
-              <label>
+            <div className="grid grid-cols-2 gap-4 max-[760px]:grid-cols-1">
+              <label className={campoPublico}>
                 Teléfono
-                <input name="telefono" required type="tel" pattern="[0-9+()\s\-]{7,20}" autoComplete="tel" />
+                <input className={controlPublico} name="telefono" required type="tel" pattern="[0-9+()\s\-]{7,20}" autoComplete="tel" />
               </label>
-              <label>
+              <label className={campoPublico}>
                 Correo (opcional)
-                <input name="correo" type="email" autoComplete="email" />
+                <input className={controlPublico} name="correo" type="email" autoComplete="email" />
               </label>
             </div>
-            <label>
+            <label className={campoPublico}>
               Tipo de servicio
-              <select name="tipo" defaultValue="pasteles">
+              <select className={controlPublico} name="tipo" defaultValue="pasteles">
                 {(Object.keys(ETIQUETA_SERVICIO) as TipoServicio[]).map((t) => (
                   <option key={t} value={t}>{ETIQUETA_SERVICIO[t]}</option>
                 ))}
               </select>
             </label>
-            <label>
+            <label className={campoPublico}>
               Detalles
-              <textarea name="detalles" rows={4} maxLength={2000} defaultValue={detallesIniciales} />
+              <textarea className={controlPublico} name="detalles" rows={4} maxLength={2000} defaultValue={detallesIniciales} />
             </label>
-            {error && <p className="tarjeta-form__error" role="alert">{error}</p>}
-            <button className="boton-oscuro" type="submit" disabled={enviando}>
+            {error && <p className="font-ui text-sm leading-[1.4] font-semibold text-error" role="alert">{error}</p>}
+            <button className={botonOscuro} type="submit" disabled={enviando}>
               {enviando ? 'Enviando…' : 'Agendar cita'}
             </button>
           </form>

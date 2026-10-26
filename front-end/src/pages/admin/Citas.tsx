@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
 import { api, ETIQUETA_SERVICIO, formatoFecha, type Cita, type EstadoCita } from '../../lib/api'
+import { celdaTd, celdaTh, tabla, tarjetaAdmin } from '../../lib/estilos'
 import { useDatos } from '../../lib/useDatos'
 
 const FILTROS: { valor: EstadoCita | null; texto: string }[] = [
@@ -12,6 +13,14 @@ const FILTROS: { valor: EstadoCita | null; texto: string }[] = [
   { valor: 'terminado', texto: 'Terminados' },
 ]
 const ESTADOS: EstadoCita[] = ['proximo', 'en proceso', 'terminado', 'cancelado']
+
+const COLOR_ESTADO: Record<EstadoCita, string> = {
+  proximo: 'text-black',
+  cancelado: 'text-error',
+  terminado: 'text-exito',
+  'en proceso': 'text-dorado',
+}
+const chip = 'rounded-[15px] bg-chip font-texto whitespace-nowrap text-tinto-texto transition-colors'
 
 /* ADMINISTRADOR citas (Figma 37:306) */
 export default function Citas() {
@@ -42,27 +51,31 @@ export default function Citas() {
 
   return (
     <AdminLayout titulo="Citas">
-      <div className="citas__herramientas">
-        <div className="buscador">
-          <svg className="buscador__lupa" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <div className="-mt-1 mb-[26px] flex flex-wrap items-center gap-2">
+        <div className="relative h-[38px] w-[300px] max-[960px]:w-auto max-[960px]:flex-1">
+          <svg className="absolute top-[11px] left-[13px] text-[#3c3c43]" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.4" />
             <path d="M15.5 15.5 21 21" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
           <input
             type="search"
+            className="h-full w-full rounded-[19px] bg-white pr-4 pl-9 font-texto text-[15px] leading-none shadow-[0_2px_8px_rgba(48,14,21,0.12)]"
             placeholder="Buscar cita"
             aria-label="Buscar cita por nombre, teléfono o correo"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
           />
         </div>
-        <button type="button" className="buscador__limpiar" aria-label="Limpiar búsqueda" onClick={() => setTexto('')}>×</button>
-        <div className="chips" role="group" aria-label="Filtrar por estado">
+        <button
+          type="button"
+          className="size-[38px] flex-none rounded-full bg-white font-texto text-[21px] leading-none text-black shadow-[0_2px_8px_rgba(48,14,21,0.12)]"
+          aria-label="Limpiar búsqueda" onClick={() => setTexto('')}>×</button>
+        <div className="ml-8 flex flex-wrap gap-2.5 max-[1200px]:ml-2 max-[960px]:ml-0 max-[960px]:w-full" role="group" aria-label="Filtrar por estado">
           {FILTROS.map((f) => (
             <button
               key={f.texto}
               type="button"
-              className="chip"
+              className={`${chip} h-[30px] min-w-[82px] px-3 text-[15px] leading-[30px] aria-pressed:bg-tinto-oscuro aria-pressed:text-white`}
               aria-pressed={estado === f.valor}
               onClick={() => setEstado(f.valor)}
             >
@@ -72,27 +85,32 @@ export default function Citas() {
         </div>
       </div>
 
-      <section className="tarjeta-admin">
-        <h2 className="tarjeta-admin__titulo tarjeta-admin__titulo--negro">
+      <section className={`${tarjetaAdmin} px-7 pt-[26px] pb-[22px]`}>
+        <h2 className="font-ui text-[19px] leading-[1.3] font-semibold text-black">
           {tituloTabla === 'Todos' ? 'Todas las citas' : tituloTabla}
-          {citas.datos && <span className="tarjeta-admin__conteo"> · {citas.datos.length}</span>}
+          {citas.datos && <span className="text-base text-dorado"> · {citas.datos.length}</span>}
         </h2>
         {errorAccion && <MensajeError texto={errorAccion} />}
-        <table className="tabla tabla--citas">
+        <table className={tabla}>
           <thead>
-            <tr><th>Fecha de cita</th><th>Usuario</th><th>Telefono</th><th>Servicio</th><th>Detalles</th><th><span className="sr-only">Estado</span></th></tr>
+            <tr>
+              {['Fecha de cita', 'Usuario', 'Telefono', 'Servicio', 'Detalles'].map((t) => <th key={t} className={celdaTh}>{t}</th>)}
+              <th className={`${celdaTh} w-32`}><span className="sr-only">Estado</span></th>
+            </tr>
           </thead>
           <tbody>
             {citas.datos?.map((c) => (
               <tr key={c.id}>
-                <td>{formatoFecha(c.fecha)}</td>
-                <td>{c.nombre_cliente}<small>{c.correo}</small></td>
-                <td>{c.telefono}</td>
-                <td><span className="chip chip--estatico">{ETIQUETA_SERVICIO[c.tipo_servicio]}</span></td>
-                <td className="tabla__detalles">{c.detalles ?? '—'}</td>
-                <td>
+                <td className={celdaTd}>{formatoFecha(c.fecha)}</td>
+                <td className={celdaTd}>{c.nombre_cliente}<small className="block text-xs text-texto-secundario">{c.correo}</small></td>
+                <td className={celdaTd}>{c.telefono}</td>
+                <td className={celdaTd}>
+                  <span className={`${chip} inline-block h-7 min-w-[100px] px-3 text-center text-sm leading-7`}>{ETIQUETA_SERVICIO[c.tipo_servicio]}</span>
+                </td>
+                <td className={`${celdaTd} text-[13px]! text-texto-secundario`}>{c.detalles ?? '—'}</td>
+                <td className={celdaTd}>
                   <select
-                    className={`selector-estado selector-estado--${c.estado.replace(' ', '-')}`}
+                    className={`w-full rounded-[14px] border border-rosa-vino bg-white px-2 py-[5px] font-texto text-[13px] leading-[1.2] capitalize ${COLOR_ESTADO[c.estado]}`}
                     value={c.estado}
                     aria-label={`Estado de la cita de ${c.nombre_cliente}`}
                     onChange={(e) => cambiarEstado(c, e.target.value as EstadoCita)}

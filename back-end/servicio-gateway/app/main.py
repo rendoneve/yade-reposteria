@@ -3,7 +3,8 @@
     /api/<recurso>/...  ->  servicio dueño de ese recurso
 
     auth, usuarios                            -> servicio-auth
-    categorias, productos, etiquetas, resenas -> servicio-catalogo
+    categorias, productos, etiquetas, resenas,
+    imagenes                                  -> servicio-catalogo
     citas                                     -> servicio-citas
     negocio, horarios                         -> servicio-negocio
     actividades, estadisticas                 -> servicio-actividad
@@ -33,6 +34,7 @@ RUTAS = {
     "productos": "catalogo",
     "etiquetas": "catalogo",
     "resenas": "catalogo",
+    "imagenes": "catalogo",
     "citas": "citas",
     "negocio": "negocio",
     "horarios": "negocio",

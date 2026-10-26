@@ -1,76 +1,54 @@
-/* Paleta y tipografías del diseño en Figma (Yade Bakery) */
-:root {
-  --tinto: #59252f;          /* Tinto principal */
-  --tinto-medio: #7a3a45;
-  --tinto-oscuro: #35151b;   /* Fondos oscuros */
-  --tinto-texto: #300e15;    /* Títulos sobre claro */
-  --rosa-vino: #b88a92;
-  --beige: #e8dccf;          /* Beige cálido */
-  --crema: #f2ece7;          /* Tarjetas del panel */
-  --chip: #d6c7bd;
-  --caramelo: #d9b89c;
-  --sombra-tarjeta: #c8b49e;
-  --dorado: #99651c;         /* Acentos (títulos de sección, encabezados de tabla) */
-  --texto-secundario: #6f6262;
-  --borde: #e5dad5;
-  --exito: #2f6b4f;
-  --error: #a3333d;
+@import "tailwindcss";
 
-  --f-titulo: 'Cormorant Garamond', Georgia, serif;
-  --f-ui: 'Montserrat', system-ui, sans-serif;
-  --f-texto: 'Barlow', system-ui, sans-serif;
+/* Paleta y tipografías del diseño en Figma (Yade Bakery).
+   Cada variable genera sus utilidades: bg-tinto, text-dorado, font-titulo, shadow-tarjeta… */
+@theme {
+  --color-tinto: #59252f; /* Tinto principal */
+  --color-tinto-medio: #7a3a45;
+  --color-tinto-oscuro: #35151b; /* Fondos oscuros */
+  --color-tinto-texto: #300e15; /* Títulos sobre claro */
+  --color-rosa-vino: #b88a92;
+  --color-beige: #e8dccf; /* Beige cálido */
+  --color-crema: #f2ece7; /* Tarjetas del panel */
+  --color-chip: #d6c7bd;
+  --color-caramelo: #d9b89c;
+  --color-sombra-tarjeta: #c8b49e;
+  --color-dorado: #99651c; /* Acentos (títulos de sección, encabezados de tabla) */
+  --color-texto-secundario: #6f6262;
+  --color-borde: #e5dad5;
+  --color-exito: #2f6b4f;
+  --color-error: #a3333d;
 
-  font-family: var(--f-texto);
-  color: #000;
-  background: var(--beige);
-  -webkit-font-smoothing: antialiased;
+  --font-titulo: "Cormorant Garamond", Georgia, serif;
+  --font-ui: "Montserrat", system-ui, sans-serif;
+  --font-texto: "Barlow", system-ui, sans-serif;
+
+  --shadow-tarjeta: 0 4px 10px var(--color-sombra-tarjeta);
+  --shadow-modal: 0 20px 60px rgba(48, 14, 21, 0.35);
+
+  /* Margen lateral del sitio público: contenido centrado en un ancho máximo de 1440 px (left-margen, px-margen) */
+  --spacing-margen: max(48px, calc((100% - 1440px) / 2 + 72px));
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+@layer base {
+  html {
+    font-family: var(--font-texto);
+    color: #000;
+    background: var(--color-beige);
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  background: var(--beige);
-}
+  body {
+    min-width: 320px;
+  }
 
-img {
-  display: block;
-  max-width: 100%;
-}
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 
-button {
-  font: inherit;
-  cursor: pointer;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-h1, h2, h3, p {
-  margin: 0;
-}
-
-input, select, textarea {
-  font: inherit;
-}
-
-:focus-visible {
-  outline: 3px solid var(--caramelo);
-  outline-offset: 2px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  :focus-visible {
+    outline: 3px solid var(--color-caramelo);
+    outline-offset: 2px;
+  }
 }

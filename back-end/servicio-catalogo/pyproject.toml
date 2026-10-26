@@ -10,6 +10,7 @@ dependencies = [
     "pyjwt>=2.10.1",
     "httpx>=0.28.1",
     "pydantic-settings>=2.6",
+    "boto3>=1.40",
 ]
 
 [tool.uv]
