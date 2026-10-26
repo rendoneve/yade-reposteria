@@ -19,7 +19,7 @@ if (-not (Test-Path "$PSScriptRoot\.env")) {
 foreach ($s in $servicios) {
     $carpeta = Join-Path $PSScriptRoot "servicio-$($s.nombre)"
     $comando = "`$Host.UI.RawUI.WindowTitle = 'servicio-$($s.nombre) :$($s.puerto)'; " +
-               "Set-Location '$carpeta'; uv run fastapi dev app/main.py --port $($s.puerto)"
+               "Set-Location '$carpeta'; uv run python -m fastapi dev app/main.py --port $($s.puerto)"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $comando
 }
 

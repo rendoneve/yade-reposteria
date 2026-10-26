@@ -27,7 +27,7 @@ con un *schema* por servicio. El front-end solo habla con el **gateway**.
    cd servicio-gateway;   uv sync; cd ..
    ```
 4. **Levantar todo**: `.\iniciar-backend.ps1` (abre una ventana por servicio).
-   O uno solo: `cd servicio-catalogo; uv run fastapi dev app/main.py --port 8002`
+   O uno solo: `cd servicio-catalogo; uv run python -m fastapi dev app/main.py --port 8002`
 5. Revisa `http://localhost:8000/health`: todos deben decir `ok`.
 
 ## Imágenes (bucket)

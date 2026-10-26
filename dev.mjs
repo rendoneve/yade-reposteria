@@ -182,7 +182,9 @@ titulo("Iniciando servicios…\n");
 const procesos = [
   ...servicios.map((s) => ({
     ...s,
-    comando: `uv run fastapi dev app/main.py --port ${s.puerto}`,
+    // "python -m fastapi" en lugar del ejecutable fastapi.exe: Smart App Control de Windows
+    // bloquea los .exe que uv genera en .venv\Scripts (no están firmados), pero no python.exe.
+    comando: `uv run python -m fastapi dev app/main.py --port ${s.puerto}`,
     url: `http://127.0.0.1:${s.puerto}/health`,
   })),
   { nombre: "front-end", carpeta: dirFront, comando: "pnpm dev", url: null },

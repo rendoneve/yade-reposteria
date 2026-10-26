@@ -1,3 +1,5 @@
+import logging
+
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, HTTPException, UploadFile, status
 from pydantic import BaseModel
@@ -6,6 +8,7 @@ from app.core import almacenamiento
 from app.core.security import Admin
 
 router = APIRouter(prefix="/imagenes", tags=["Imágenes"])
+log = logging.getLogger("uvicorn.error")
 
 TIPOS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif"}
 MAX_BYTES = 5 * 1024 * 1024
@@ -33,6 +36,14 @@ def subir_imagen(archivo: UploadFile, admin: Admin):
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "La imagen pesa más de 5 MB")
     try:
         url = almacenamiento.subir(contenido, archivo.content_type, extension)
-    except (BotoCoreError, ClientError):
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "No se pudo guardar la imagen en el bucket")
+    except ClientError as exc:
+        # El bucket respondió con un error (credenciales, bucket inexistente, permisos…)
+        error = exc.response.get("Error", {})
+        codigo = error.get("Code", "desconocido")
+        log.warning("El bucket rechazó la imagen: %s - %s", codigo, error.get("Message", ""))
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"El bucket rechazó la imagen ({codigo})")
+    except BotoCoreError as exc:
+        # No se pudo ni hablar con el bucket (endpoint mal escrito, sin red, región inválida…)
+        log.warning("No se pudo conectar con el bucket: %s", exc)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"No se pudo conectar con el bucket: {exc}")
     return ImagenOut(url=url)
