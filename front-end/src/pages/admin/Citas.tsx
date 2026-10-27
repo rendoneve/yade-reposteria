@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
-import { api, ETIQUETA_SERVICIO, formatoFecha, type Cita, type EstadoCita } from '../../lib/api'
+import { api, etiquetaServicio, formatoFecha, type Cita, type EstadoCita } from '../../lib/api'
 import { celdaTd, celdaTh, tabla, tarjetaAdmin } from '../../lib/estilos'
 import { useDatos } from '../../lib/useDatos'
 
@@ -105,7 +105,7 @@ export default function Citas() {
                 <td className={celdaTd}>{c.nombre_cliente}<small className="block text-xs text-texto-secundario">{c.correo}</small></td>
                 <td className={celdaTd}>{c.telefono}</td>
                 <td className={celdaTd}>
-                  <span className={`${chip} inline-block h-7 min-w-[100px] px-3 text-center text-sm leading-7`}>{ETIQUETA_SERVICIO[c.tipo_servicio]}</span>
+                  <span className={`${chip} inline-block h-7 min-w-[100px] px-3 text-center text-sm leading-7`}>{etiquetaServicio(c.tipo_servicio)}</span>
                 </td>
                 <td className={`${celdaTd} text-[13px]! text-texto-secundario`}>{c.detalles ?? '—'}</td>
                 <td className={celdaTd}>

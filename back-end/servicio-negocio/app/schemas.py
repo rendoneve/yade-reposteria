@@ -37,6 +37,9 @@ class HorarioOut(BaseModel):
 
 
 class NegocioUpdate(BaseModel):
+    nombre: str | None = Field(default=None, max_length=100)
+    logo_url: str | None = Field(default=None, max_length=500)
+    hero_url: str | None = Field(default=None, max_length=500)
     banner_url: str | None = Field(default=None, max_length=500)
     texto_principal: str | None = None
     texto_acerca: str | None = None
@@ -50,6 +53,9 @@ class NegocioUpdate(BaseModel):
 class NegocioOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    nombre: str | None
+    logo_url: str | None
+    hero_url: str | None
     banner_url: str | None
     texto_principal: str | None
     texto_acerca: str | None

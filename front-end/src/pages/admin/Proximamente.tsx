@@ -1,7 +1,7 @@
 import AdminLayout from '../../components/AdminLayout'
 import { tarjetaAdmin } from '../../lib/estilos'
 
-/* Paquetes, Reseñas y Configuración aparecen en el menú del diseño pero aún no tienen pantalla. */
+/* Paquetes y Reseñas aparecen en el menú del diseño pero aún no tienen pantalla. */
 export default function Proximamente({ titulo }: { titulo: string }) {
   return (
     <AdminLayout titulo={titulo}>

@@ -8,7 +8,7 @@ FastAPI ejecuta los endpoints `def` en un hilo aparte, así que no se bloquea.
 import ssl
 from collections.abc import Iterator
 
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -48,6 +48,22 @@ SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
 class Base(DeclarativeBase):
     metadata = MetaData(schema=SCHEMA)
+
+
+# No hay migraciones: estos cambios se aplican al arrancar el servicio.
+# Se pueden repetir sin problema y nunca borran datos.
+ACTUALIZACIONES = [
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS nombre VARCHAR(100)",
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS hero_url VARCHAR(500)",
+]
+
+
+def actualizar_tablas() -> None:
+    """Aplica los columnas nuevas de negocio.negocio en bases creadas con una versión anterior de schema.sql."""
+    with engine.begin() as conn:
+        for sentencia in ACTUALIZACIONES:
+            conn.execute(text(sentencia))
 
 
 def get_db() -> Iterator[Session]:

@@ -9,7 +9,7 @@ con un *schema* por servicio. El front-end solo habla con el **gateway**.
 | servicio-auth | 8001 | `auth` | Login, JWT, usuarios administradores |
 | servicio-catalogo | 8002 | `catalogo` | Categorías, productos, etiquetas, reseñas |
 | servicio-citas | 8003 | `citas` | Citas en sucursal |
-| servicio-negocio | 8004 | `negocio` | Banner, textos, WhatsApp, ubicación, horarios |
+| servicio-negocio | 8004 | `negocio` | Nombre, logo, hero, banner, textos, WhatsApp, ubicación, horarios |
 | servicio-actividad | 8005 | `actividad` | Historial de actividad y estadísticas del panel |
 
 ## Arranque
@@ -74,7 +74,7 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 **Citas**
 - 🔓 `POST /citas` — formulario del sitio; la fecha debe ser futura y llevar zona horaria
   (`2026-11-05T16:00:00-07:00`). Siempre queda en estado `proximo`.
-- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count`
+- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count` · `GET /citas/terminadas/count`
 - 🔒 `POST /citas/admin` (captura del administrador) · `GET/PATCH/DELETE /citas/{id}` · `PATCH /citas/{id}/estado`
 
 **Negocio**
@@ -83,11 +83,11 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 
 **Actividad**
 - 🔒 `GET /actividades?tipo=&persona=&limit=&offset=`
-- 🔒 `GET /estadisticas` → `productos_en_catalogo`, `citas_proximas`, `actividad_reciente`, `errores`
+- 🔒 `GET /estadisticas` → `productos_en_catalogo`, `citas_proximas`, `citas_terminadas`, `actividad_reciente`, `errores`
 - `POST /actividades` es interno (header `X-Internal-Key`); el gateway lo bloquea desde afuera.
 
 Valores permitidos: disponibilidad `bajo pedido | stock | proximamente` ·
-tipo de cita `especial | individual | pasteles` · estado `proximo | cancelado | en proceso | terminado`.
+tipo de cita `especial | individual | pasteles` o el nombre de una categoría del catálogo · estado `proximo | cancelado | en proceso | terminado`.
 
 ## Cómo está organizado cada servicio
 
@@ -109,8 +109,8 @@ servicio-x/
 - El JWT lo firma `servicio-auth`; los demás solo lo verifican con el mismo `JWT_SECRET`.
 - Los cambios (crear, editar, eliminar) se registran solos en `servicio-actividad`.
   Si ese servicio está caído, la operación igual se completa.
-- No hay migraciones: si cambias un modelo, aplica el cambio a mano en Neon
-  (`ALTER TABLE ...`) y actualiza `db/schema.sql`.
+- No hay migraciones: si cambias un modelo, actualiza `db/schema.sql` y agrega el
+  `ALTER TABLE ...` a `ACTUALIZACIONES` en `app/core/database.py` del servicio (se aplica al arrancar).
 - Las imágenes se guardan como URL (`imagen_url`, `banner_url`); subir archivos queda para después.
 
 ## Notas técnicas

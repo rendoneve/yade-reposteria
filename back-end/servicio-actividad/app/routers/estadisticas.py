@@ -24,9 +24,10 @@ async def estadisticas(
 ):
     """Datos del panel. Si un servicio falla, ese dato viene en null y el motivo en `errores`."""
     async with httpx.AsyncClient(timeout=settings.http_timeout) as cliente:
-        productos, citas, actividad = await asyncio.gather(
+        productos, citas, terminadas, actividad = await asyncio.gather(
             servicios.total_productos(cliente, admin.token),
             servicios.total_citas_proximas(cliente, admin.token),
+            servicios.total_citas_terminadas(cliente, admin.token),
             run_in_threadpool(repo.listar, db, None, None, recientes, 0),
             return_exceptions=True,
         )
@@ -38,6 +39,9 @@ async def estadisticas(
     if isinstance(citas, Exception):
         errores["citas_proximas"] = f"servicio-citas {citas}"
         citas = None
+    if isinstance(terminadas, Exception):
+        errores["citas_terminadas"] = f"servicio-citas {terminadas}"
+        terminadas = None
     if isinstance(actividad, Exception):
         errores["actividad_reciente"] = "no se pudo leer el historial"
         actividad = []
@@ -45,6 +49,7 @@ async def estadisticas(
     return EstadisticasOut(
         productos_en_catalogo=productos,
         citas_proximas=citas,
+        citas_terminadas=terminadas,
         actividad_reciente=[ActividadOut.model_validate(a) for a in actividad],
         errores=errores,
     )

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import Encabezado from '../components/Encabezado'
 import Pie from '../components/Pie'
-import { api, ETIQUETA_SERVICIO, formatoFecha, type Producto, type TipoServicio } from '../lib/api'
+import { api, ETIQUETA_SERVICIO, formatoFecha, type Categoria, type Producto } from '../lib/api'
 import { botonOscuro, campoPublico, controlPublico, degradadoHero, hero, heroLinea, heroTitulo, pagina, tarjetaCrema } from '../lib/estilos'
 import { useRuta } from '../lib/router'
 import { useDatos } from '../lib/useDatos'
@@ -34,6 +34,7 @@ export default function AgendarCita() {
     () => (idProducto ? api<Producto>(`/productos/${idProducto}`) : Promise.resolve(null)),
     [idProducto],
   )
+  const categorias = useDatos(() => api<Categoria[]>('/categorias'))
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +53,7 @@ export default function AgendarCita() {
           nombre_cliente: String(f.get('nombre')).trim(),
           telefono: String(f.get('telefono')).trim(),
           correo: String(f.get('correo')).trim() || null,
-          tipo_servicio: f.get('tipo') as TipoServicio,
+          tipo_servicio: String(f.get('tipo')),
           detalles: String(f.get('detalles')).trim() || null,
         },
       })
@@ -65,6 +66,12 @@ export default function AgendarCita() {
   }
 
   const detallesIniciales = producto.datos ? `Me interesa: ${producto.datos.nombre}` : ''
+  // Una categoría que se llame igual que un servicio ("Pasteles") se muestra una sola vez
+  const servicioDe = (nombre: string) =>
+    Object.keys(ETIQUETA_SERVICIO).find((k) => ETIQUETA_SERVICIO[k].toLowerCase() === nombre.trim().toLowerCase())
+  const categoriasExtra = (categorias.datos ?? []).filter((c) => !servicioDe(c.nombre))
+  const nombreCategoria = producto.datos?.categoria_nombre
+  const tipoInicial = nombreCategoria ? (servicioDe(nombreCategoria) ?? nombreCategoria) : 'pasteles'
 
   return (
     <div className={pagina}>
@@ -81,7 +88,7 @@ export default function AgendarCita() {
             <p className="font-texto text-lg leading-normal">Te esperamos el {formatoFecha(confirmada.fecha)}. Si necesitas cambiarla, contáctanos por WhatsApp.</p>
           </div>
         ) : (
-          <form className={tarjetaForm} onSubmit={enviar} key={detallesIniciales}>
+          <form className={tarjetaForm} onSubmit={enviar} key={`${detallesIniciales}|${tipoInicial}|${categoriasExtra.length}`}>
             <label className={campoPublico}>
               Fecha y hora
               <input className={controlPublico} name="fecha" type="datetime-local" required defaultValue={mananaALas(11)} />
@@ -102,10 +109,19 @@ export default function AgendarCita() {
             </div>
             <label className={campoPublico}>
               Tipo de servicio
-              <select className={controlPublico} name="tipo" defaultValue="pasteles">
-                {(Object.keys(ETIQUETA_SERVICIO) as TipoServicio[]).map((t) => (
-                  <option key={t} value={t}>{ETIQUETA_SERVICIO[t]}</option>
-                ))}
+              <select className={controlPublico} name="tipo" required defaultValue={tipoInicial}>
+                <optgroup label="Servicios">
+                  {Object.entries(ETIQUETA_SERVICIO).map(([valor, texto]) => (
+                    <option key={valor} value={valor}>{texto}</option>
+                  ))}
+                </optgroup>
+                {categoriasExtra.length > 0 && (
+                  <optgroup label="Categorías">
+                    {categoriasExtra.map((c) => (
+                      <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </label>
             <label className={campoPublico}>

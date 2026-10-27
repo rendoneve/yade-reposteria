@@ -12,9 +12,12 @@ class Negocio(Base):
     __tablename__ = "negocio"
 
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
-    banner_url: Mapped[str | None] = mapped_column(String(500))
-    texto_principal: Mapped[str | None] = mapped_column(Text)
-    texto_acerca: Mapped[str | None] = mapped_column(Text)
+    nombre: Mapped[str | None] = mapped_column(String(100))
+    logo_url: Mapped[str | None] = mapped_column(String(500))
+    hero_url: Mapped[str | None] = mapped_column(String(500))  # imagen del hero de Inicio
+    banner_url: Mapped[str | None] = mapped_column(String(500))  # banner de "Acerca de"
+    texto_principal: Mapped[str | None] = mapped_column(Text)  # texto del hero de Inicio
+    texto_acerca: Mapped[str | None] = mapped_column(Text)  # historia del negocio
     whatsapp: Mapped[str | None] = mapped_column(String(20))
     ubicacion: Mapped[str | None] = mapped_column(String(255))
     mapa_url: Mapped[str | None] = mapped_column(String(500))

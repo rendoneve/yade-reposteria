@@ -1,18 +1,8 @@
 import Encabezado from '../components/Encabezado'
 import { Cargando, MensajeError } from '../components/Estado'
 import Pie from '../components/Pie'
-import { api } from '../lib/api'
 import { degradadoHero, hero, heroLinea, heroLineaChica, heroTitulo, pagina, tarjetaCrema } from '../lib/estilos'
-import { useDatos } from '../lib/useDatos'
-
-type Horario = { dia_semana: number; dia: string; abre: string | null; cierra: string | null; cerrado: boolean }
-type Negocio = {
-  texto_acerca: string | null
-  whatsapp: string | null
-  ubicacion: string | null
-  mapa_url: string | null
-  horarios: Horario[]
-}
+import { useNegocio } from '../lib/negocio'
 
 const bloque = `${tarjetaCrema} flex flex-col gap-3 px-8 py-[30px]`
 const texto = 'font-texto text-lg leading-[1.55] whitespace-pre-line'
@@ -20,19 +10,22 @@ const texto = 'font-texto text-lg leading-[1.55] whitespace-pre-line'
 const hora = (h: string | null) => (h ? h.slice(0, 5) : '')
 
 /* ACERCA DE (Figma 20:112). En el diseño solo están el hero, el encabezado y el pie;
-   el contenido sale de servicio-negocio. */
+   el contenido (y el banner del hero) sale de servicio-negocio. */
 export default function AcercaDe() {
-  const { datos, error, cargando, recargar } = useDatos(() => api<Negocio>('/negocio'))
+  const { negocio: datos, error, cargando, recargar, nombre, banner } = useNegocio()
   // Lunes primero
   const horarios = datos ? [...datos.horarios].sort((a, b) => ((a.dia_semana + 6) % 7) - ((b.dia_semana + 6) % 7)) : []
 
   return (
     <div className={pagina}>
-      <section className={`${hero} ${degradadoHero} h-[400px]`}>
+      <section
+        className={`${hero} h-[400px] ${banner ? 'bg-cover bg-center' : degradadoHero}`}
+        style={banner ? { backgroundImage: `linear-gradient(180deg, rgba(48,14,21,0.45) 0%, #300e15 100%), url("${banner}")` } : undefined}
+      >
         <Encabezado />
         <h1 className={`${heroTitulo} top-[130px] h-[200px]`}>
           <span className={heroLineaChica}>Conoce a</span>
-          <span className={heroLinea}>YADE BAKERY</span>
+          <span className={heroLinea}>{nombre.toUpperCase()}</span>
         </h1>
       </section>
       <main className="flex-1 px-margen pt-[60px] pb-[100px] max-[760px]:px-4 max-[760px]:pt-10 max-[760px]:pb-20">

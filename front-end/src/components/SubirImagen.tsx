@@ -7,6 +7,7 @@ interface Props {
   onChange?: (archivo: File | null) => void;
   onEliminar?: () => void;
   className?: string;
+  fondoOscuro?: boolean; // para imágenes claras, como el logo
 }
 
 /* Zona para elegir o arrastrar una imagen. Solo muestra la vista previa y entrega el
@@ -16,6 +17,7 @@ export default function SubirImagen({
   onChange,
   onEliminar,
   className = "h-48",
+  fondoOscuro = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [vista, setVista] = useState<string | null>(imagenInicial ?? null);
@@ -99,7 +101,11 @@ export default function SubirImagen({
           if (url) manejarUrl(url);
         }}
         className={`relative flex items-center justify-center rounded-2xl border-2 border-dashed border-rosa-vino transition-colors ${
-          arrastrando ? "border-tinto bg-chip" : "bg-white hover:bg-beige"
+          arrastrando
+            ? "border-tinto bg-chip"
+            : fondoOscuro
+              ? "bg-tinto-oscuro hover:bg-tinto"
+              : "bg-white hover:bg-beige"
         } ${className}`}
       >
         <input
@@ -130,7 +136,7 @@ export default function SubirImagen({
             </button>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center p-5 text-center text-tinto">
+          <div className={`flex flex-col items-center justify-center p-5 text-center ${fondoOscuro && !arrastrando ? "text-beige" : "text-tinto"}`}>
             <ImageUpIcon size={44} className="mb-2" />
             <span className="w-52 font-texto text-sm font-normal">
               Arrastra una imagen o haz clic para seleccionar una

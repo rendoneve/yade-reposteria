@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import logo from '../assets/img/logo-yade-footer.png'
 import { useSesion } from '../lib/auth'
 import { botonOscuro, campoAdmin, controlAdmin, errorAdmin, fondoLogin } from '../lib/estilos'
+import { useNegocio } from '../lib/negocio'
 import { Link } from '../lib/router'
 
 const controlLogin = `${controlAdmin} px-3 py-2.5 text-base`
@@ -9,6 +9,7 @@ const controlLogin = `${controlAdmin} px-3 py-2.5 text-base`
 /* Inicio de sesión del panel (no está en Figma; usa la paleta del panel). */
 export default function Login() {
   const { entrar } = useSesion()
+  const { logo, nombre } = useNegocio()
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
@@ -29,7 +30,7 @@ export default function Login() {
   return (
     <div className={fondoLogin}>
       <form className="flex w-[min(400px,100%)] flex-col gap-[15px] rounded-[18px] bg-crema p-8 shadow-[0_20px_60px_rgba(0,0,0,0.35)]" onSubmit={enviar}>
-        <img src={logo} width={218} height={106} alt="Yade" className="w-[110px] self-center brightness-25 sepia -hue-rotate-30 saturate-300" />
+        <img src={logo} width={218} height={106} alt={nombre} className="w-[110px] self-center brightness-25 sepia -hue-rotate-30 saturate-300" />
         <h1 className="text-center font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto">Panel de administración</h1>
         <label className={campoAdmin}>
           Usuario o correo

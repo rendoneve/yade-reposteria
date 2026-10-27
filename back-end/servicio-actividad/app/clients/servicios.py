@@ -27,3 +27,7 @@ async def total_productos(cliente: httpx.AsyncClient, token: str) -> int:
 
 async def total_citas_proximas(cliente: httpx.AsyncClient, token: str) -> int:
     return await _total(cliente, f"{settings.citas_service_url}/citas/proximas/count", token)
+
+
+async def total_citas_terminadas(cliente: httpx.AsyncClient, token: str) -> int:
+    return await _total(cliente, f"{settings.citas_service_url}/citas/terminadas/count", token)

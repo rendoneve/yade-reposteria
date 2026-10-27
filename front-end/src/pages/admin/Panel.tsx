@@ -31,7 +31,7 @@ export default function Panel() {
       <div className="mb-5 grid grid-cols-3 gap-4 max-[960px]:grid-cols-1">
         <Stat titulo="Productos en catalogo" valor={stats.datos?.productos_en_catalogo} cargando={stats.cargando} />
         <Stat titulo="Citas proximas" valor={stats.datos?.citas_proximas} cargando={stats.cargando} />
-        <Stat titulo="Ventas totales" valor={null} cargando={false} nota="Aún no se registran ventas" />
+        <Stat titulo="Citas terminadas" valor={stats.datos?.citas_terminadas} cargando={stats.cargando} />
       </div>
       {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
 
@@ -109,12 +109,11 @@ export default function Panel() {
   )
 }
 
-function Stat({ titulo, valor, cargando, nota }: { titulo: string; valor: number | null | undefined; cargando: boolean; nota?: string }) {
+function Stat({ titulo, valor, cargando }: { titulo: string; valor: number | null | undefined; cargando: boolean }) {
   return (
     <section className={`${tarjetaCrema} flex h-[140px] flex-col px-6 py-5`}>
       <h2 className="font-ui text-[15px] leading-[1.3] font-semibold text-tinto-texto">{titulo}</h2>
       <p className="mt-auto font-ui text-[46px] leading-none font-bold text-tinto">{cargando ? '…' : valor ?? '—'}</p>
-      {nota && <p className="font-texto text-[13px] leading-[1.3] text-texto-secundario">{nota}</p>}
     </section>
   )
 }

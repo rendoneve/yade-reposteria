@@ -104,7 +104,6 @@ export async function resolverImagen(cambio: CambioImagen, actual: string | null
 /* ---------- Tipos (coinciden con los esquemas del backend) ---------- */
 
 export type Disponibilidad = 'bajo pedido' | 'stock' | 'proximamente'
-export type TipoServicio = 'especial' | 'individual' | 'pasteles'
 export type EstadoCita = 'proximo' | 'cancelado' | 'en proceso' | 'terminado'
 
 export type Usuario = {
@@ -144,8 +143,23 @@ export type Cita = {
   telefono: string
   correo: string | null
   detalles: string | null
-  tipo_servicio: TipoServicio
+  tipo_servicio: string // nombre de la categoría
   estado: EstadoCita
+}
+
+export type Horario = { dia_semana: number; dia: string; abre: string | null; cierra: string | null; cerrado: boolean }
+
+export type Negocio = {
+  nombre: string | null
+  logo_url: string | null
+  hero_url: string | null
+  banner_url: string | null
+  texto_principal: string | null
+  texto_acerca: string | null
+  whatsapp: string | null
+  ubicacion: string | null
+  mapa_url: string | null
+  horarios: Horario[]
 }
 
 export type Actividad = { id: number; fecha: string; persona: string; nombre: string; tipo: string }
@@ -153,6 +167,7 @@ export type Actividad = { id: number; fecha: string; persona: string; nombre: st
 export type Estadisticas = {
   productos_en_catalogo: number | null
   citas_proximas: number | null
+  citas_terminadas: number | null
   actividad_reciente: Actividad[]
   errores: Record<string, string>
 }
@@ -165,11 +180,13 @@ export const formatoPrecio = (p: string | number) => moneda.format(Number(p))
 const fechaHora = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 export const formatoFecha = (iso: string) => fechaHora.format(new Date(iso))
 
-export const ETIQUETA_SERVICIO: Record<TipoServicio, string> = {
+// El tipo de una cita es uno de estos servicios o el nombre de una categoría del catálogo
+export const ETIQUETA_SERVICIO: Record<string, string> = {
   especial: 'Especiales',
   individual: 'Individuales',
   pasteles: 'Pasteles',
 }
+export const etiquetaServicio = (tipo: string) => ETIQUETA_SERVICIO[tipo] ?? tipo
 
 export const ETIQUETA_DISPONIBILIDAD: Record<Disponibilidad, string> = {
   'bajo pedido': 'Bajo pedido',

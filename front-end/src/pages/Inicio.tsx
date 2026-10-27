@@ -1,14 +1,15 @@
-import heroInicio from '../assets/img/hero-inicio.png'
 import Encabezado from '../components/Encabezado'
 import { Cargando, MensajeError, Vacio } from '../components/Estado'
 import Pie from '../components/Pie'
 import TarjetaPostre from '../components/TarjetaPostre'
 import { api, type Producto } from '../lib/api'
 import { degradadoHero, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
+import { useNegocio } from '../lib/negocio'
 import { useDatos } from '../lib/useDatos'
 
 /* PAGINA PRINCIPAL (Figma 1:2) */
 export default function Inicio() {
+  const { heroImagen, heroLineas } = useNegocio()
   // "Especiales del mes": los más vendidos; si no hay, los más recientes.
   const { datos, error, cargando, recargar } = useDatos(async () => {
     const top = await api<Producto[]>('/productos', { params: { etiqueta: 'mas vendidos', limit: 4 } })
@@ -20,11 +21,10 @@ export default function Inicio() {
       <section className={`${hero} ${degradadoHero} z-1 h-[620px] max-[760px]:overflow-hidden`}>
         <Encabezado />
         <h1 className={`${heroTitulo} top-[180px] h-[230px]`}>
-          <span className={heroLineaChica}>El postre perfecto</span>
-          <span className={heroLinea}>siempre es una</span>
-          <span className={heroLinea}>BUENA IDEA</span>
+          {/* El primer renglón va un poco más chico, como en el diseño */}
+          {heroLineas.map((l, i) => <span key={i} className={i === 0 && heroLineas.length > 1 ? heroLineaChica : heroLinea}>{l}</span>)}
         </h1>
-        <img className="pointer-events-none absolute top-[92px] left-[calc(50%+32px)] h-auto w-[560px] max-w-none max-[1280px]:right-8 max-[1280px]:left-auto max-[1280px]:top-[120px] max-[1280px]:w-[460px] max-[1000px]:top-[170px] max-[1000px]:w-[380px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroInicio} width={802} height={840} alt="" />
+        <img className="pointer-events-none absolute top-[92px] left-[calc(50%+32px)] h-auto w-[560px] max-w-none max-[1280px]:right-8 max-[1280px]:left-auto max-[1280px]:top-[120px] max-[1280px]:w-[460px] max-[1000px]:top-[170px] max-[1000px]:w-[380px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroImagen} width={802} height={840} alt="" />
       </section>
 
       <main className="flex-1 px-6 pt-11 pb-[100px]">

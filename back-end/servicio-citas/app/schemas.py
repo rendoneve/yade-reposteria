@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, EmailStr, Field
 
-TipoServicio = Literal["especial", "individual", "pasteles"]
+# "especial", "individual", "pasteles" o el nombre de una categoría del catálogo
+TipoServicio = Annotated[str, Field(min_length=1, max_length=100)]
 Estado = Literal["proximo", "cancelado", "en proceso", "terminado"]
 TELEFONO_PATRON = r"^[0-9+()\s-]{7,20}$"
 

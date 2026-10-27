@@ -46,3 +46,8 @@ def contar_proximas(db: Session) -> int:
     """Citas con estado 'proximo' cuya fecha todavía no pasa."""
     stmt = select(func.count(Cita.id)).where(Cita.estado == "proximo", Cita.fecha >= func.now())
     return db.scalar(stmt) or 0
+
+
+def contar_terminadas(db: Session) -> int:
+    stmt = select(func.count(Cita.id)).where(Cita.estado == "terminado")
+    return db.scalar(stmt) or 0

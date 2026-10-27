@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import logo from '../assets/img/logo-yade.png'
 import { useSesion } from '../lib/auth'
+import { useNegocio } from '../lib/negocio'
 import { Link, useRuta } from '../lib/router'
 import Pie from './Pie'
 
@@ -17,13 +17,14 @@ const MENU = [
 export default function AdminLayout({ titulo, acciones, children }: { titulo: string; acciones?: ReactNode; children: ReactNode }) {
   const { path } = useRuta()
   const { usuario, salir } = useSesion()
+  const { logo, nombre } = useNegocio()
   const activo = (to: string) => (to === '/admin' ? path === '/admin' : path.startsWith(to))
 
   return (
     <div className="flex min-h-screen flex-col bg-beige">
       <header className="flex h-[76px] flex-none items-center justify-between border-b border-tinto bg-tinto-oscuro pr-8 pl-14 max-[960px]:px-4">
         <Link to="/admin" aria-label="Inicio del panel">
-          <img className="w-24" src={logo} width={150} height={73} alt="Yade" />
+          <img className="w-24" src={logo} width={150} height={73} alt={nombre} />
         </Link>
         <div className="flex items-center gap-[18px] font-ui text-sm leading-none text-beige">
           <span>{usuario?.username}</span>

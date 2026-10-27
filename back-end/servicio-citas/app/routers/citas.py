@@ -18,7 +18,6 @@ from app.schemas import (
     ConteoOut,
     Estado,
     EstadoIn,
-    TipoServicio,
 )
 
 router = APIRouter(prefix="/citas", tags=["Citas"])
@@ -58,7 +57,7 @@ def listar_citas(
     admin: Admin,
     db: DB,
     estado: Estado | None = None,
-    tipo_servicio: TipoServicio | None = None,
+    tipo_servicio: str | None = None,
     desde: date | None = Query(default=None, description="Día inicial (incluido)"),
     hasta: date | None = Query(default=None, description="Día final (incluido)"),
     q: str | None = Query(default=None, description="Busca por nombre, teléfono o correo"),
@@ -68,10 +67,15 @@ def listar_citas(
     return repo.listar(db, estado, tipo_servicio, desde, hasta, q, limit, offset)
 
 
-# Contrato que usa servicio-actividad para el panel. Va antes de /{cita_id}.
+# Contratos que usa servicio-actividad para el panel. Van antes de /{cita_id}.
 @router.get("/proximas/count", response_model=ConteoOut)
 def contar_proximas(admin: Admin, db: DB):
     return ConteoOut(total=repo.contar_proximas(db))
+
+
+@router.get("/terminadas/count", response_model=ConteoOut)
+def contar_terminadas(admin: Admin, db: DB):
+    return ConteoOut(total=repo.contar_terminadas(db))
 
 
 @router.post("/admin", response_model=CitaOut, status_code=status.HTTP_201_CREATED)

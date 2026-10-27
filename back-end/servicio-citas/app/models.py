@@ -15,7 +15,7 @@ class Cita(Base):
     telefono: Mapped[str] = mapped_column(String(20))
     correo: Mapped[str | None] = mapped_column(String(150))
     detalles: Mapped[str | None] = mapped_column(Text)
-    tipo_servicio: Mapped[str] = mapped_column(String(20))
+    tipo_servicio: Mapped[str] = mapped_column(String(100))
     estado: Mapped[str] = mapped_column(String(20), default="proximo")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

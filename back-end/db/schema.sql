@@ -108,8 +108,7 @@ CREATE TABLE IF NOT EXISTS citas.citas (
     telefono       VARCHAR(20)  NOT NULL,
     correo         VARCHAR(150),
     detalles       TEXT,
-    tipo_servicio  VARCHAR(20)  NOT NULL
-                   CHECK (tipo_servicio IN ('especial', 'individual', 'pasteles')),
+    tipo_servicio  VARCHAR(100) NOT NULL,                -- especial | individual | pasteles | nombre de una categoría
     estado         VARCHAR(20)  NOT NULL DEFAULT 'proximo'
                    CHECK (estado IN ('proximo', 'cancelado', 'en proceso', 'terminado')),
     created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -127,9 +126,12 @@ CREATE INDEX IF NOT EXISTS ix_citas_estado_fecha
 -- Una sola fila (id = 1) con el contenido editable del sitio
 CREATE TABLE IF NOT EXISTS negocio.negocio (
     id              SMALLINT     PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-    banner_url      VARCHAR(500),
-    texto_principal TEXT,                 -- sección principal (hero)
-    texto_acerca    TEXT,                 -- sección "Acerca de"
+    nombre          VARCHAR(100),         -- nombre del negocio (ej. Yade Bakery)
+    logo_url        VARCHAR(500),
+    hero_url        VARCHAR(500),         -- imagen del hero de Inicio
+    banner_url      VARCHAR(500),         -- banner de "Acerca de"
+    texto_principal TEXT,                 -- texto del hero de Inicio (una línea por renglón)
+    texto_acerca    TEXT,                 -- historia del negocio
     whatsapp        VARCHAR(20),          -- ej. 5216681234567
     ubicacion       VARCHAR(255),         -- dirección escrita
     mapa_url        VARCHAR(500),         -- enlace de Google Maps (opcional)

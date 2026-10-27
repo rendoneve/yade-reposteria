@@ -19,5 +19,6 @@ class EstadisticasOut(BaseModel):
     # None = ese dato no se pudo obtener (el motivo viene en "errores")
     productos_en_catalogo: int | None
     citas_proximas: int | None
+    citas_terminadas: int | None
     actividad_reciente: list[ActividadOut]
     errores: dict[str, str] = Field(default_factory=dict)
