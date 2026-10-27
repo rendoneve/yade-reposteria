@@ -13,6 +13,8 @@ type FilaHorario = { dia_semana: number; abre: string; cierra: string; cerrado: 
 
 const hora = (h: string | null) => (h ? h.slice(0, 5) : '')
 const textoONull = (v: FormDataEntryValue | null) => String(v ?? '').trim() || null
+// "HH:MM" se compara bien como texto
+const horasInvalidas = (h: FilaHorario) => !h.cerrado && !!h.abre && !!h.cierra && h.abre >= h.cierra
 
 function filasDe(horarios: Horario[]): FilaHorario[] {
   return ORDEN_DIAS.map((d) => {
@@ -63,6 +65,12 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
     setGuardando(true)
     setError(null)
     setGuardado(false)
+    const mal = horarios.filter(horasInvalidas).map((h) => DIAS[h.dia_semana])
+    if (mal.length) {
+      setError(`${mal.join(', ')}: la hora de apertura debe ser antes que la de cierre (revisa a.m. / p.m.).`)
+      setGuardando(false)
+      return
+    }
     try {
       const [logo_url, hero_url, banner_url] = await Promise.all([
         resolverImagen(logo, negocio.logo_url),
@@ -170,9 +178,9 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
                 <span className="font-texto text-[15px] text-texto-secundario max-[560px]:col-span-2">Cerrado</span>
               ) : (
                 <div className="flex items-center gap-2 font-texto text-[15px] max-[560px]:col-span-2">
-                  <input className={controlAdmin} type="time" required aria-label={`${DIAS[h.dia_semana]}: abre`} value={h.abre} onChange={(e) => cambiarDia(h.dia_semana, { abre: e.target.value })} />
+                  <input className={`${controlAdmin} aria-invalid:border-2 aria-invalid:border-error`} type="time" required aria-invalid={horasInvalidas(h) || undefined} aria-label={`${DIAS[h.dia_semana]}: abre`} value={h.abre} onChange={(e) => cambiarDia(h.dia_semana, { abre: e.target.value })} />
                   <span>a</span>
-                  <input className={controlAdmin} type="time" required aria-label={`${DIAS[h.dia_semana]}: cierra`} value={h.cierra} onChange={(e) => cambiarDia(h.dia_semana, { cierra: e.target.value })} />
+                  <input className={`${controlAdmin} aria-invalid:border-2 aria-invalid:border-error`} type="time" required aria-invalid={horasInvalidas(h) || undefined} aria-label={`${DIAS[h.dia_semana]}: cierra`} value={h.cierra} onChange={(e) => cambiarDia(h.dia_semana, { cierra: e.target.value })} />
                 </div>
               )}
             </li>

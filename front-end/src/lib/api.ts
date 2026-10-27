@@ -71,8 +71,10 @@ function mensajeDeError(datos: unknown): string | null {
   if (Array.isArray(d) && d.length) {
     // Errores de validación de FastAPI
     return d.map((e: { msg?: string; loc?: unknown[] }) => {
+      const msg = (e.msg ?? '').replace(/^Value error, /, '')
       const campo = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : ''
-      return campo ? `${campo}: ${e.msg}` : e.msg
+      // Un número es la posición en una lista (no dice nada al usuario)
+      return campo && typeof campo !== 'number' ? `${campo}: ${msg}` : msg
     }).join(' · ')
   }
   return null
