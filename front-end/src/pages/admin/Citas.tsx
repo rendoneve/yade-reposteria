@@ -102,12 +102,18 @@ export default function Citas() {
             {citas.datos?.map((c) => (
               <tr key={c.id}>
                 <td className={celdaTd}>{formatoFecha(c.fecha)}</td>
-                <td className={celdaTd}>{c.nombre_cliente}<small className="block text-xs text-texto-secundario">{c.correo}</small></td>
+                <td className={celdaTd}>
+                  {c.nombre_cliente}
+                  <small className="block text-xs text-texto-secundario">{c.correo}{c.usuario_id && ' · con cuenta'}</small>
+                </td>
                 <td className={celdaTd}>{c.telefono}</td>
                 <td className={celdaTd}>
                   <span className={`${chip} inline-block h-7 min-w-[100px] px-3 text-center text-sm leading-7`}>{etiquetaServicio(c.tipo_servicio)}</span>
                 </td>
-                <td className={`${celdaTd} text-[13px]! text-texto-secundario`}>{c.detalles ?? '—'}</td>
+                <td className={`${celdaTd} text-[13px]! text-texto-secundario`}>
+                  {c.productos.length > 0 && <span className="block text-black">{c.productos.map((p) => p.nombre).join(', ')}</span>}
+                  {c.detalles ?? (c.productos.length ? null : '—')}
+                </td>
                 <td className={celdaTd}>
                   <select
                     className={`w-full rounded-[14px] border border-rosa-vino bg-white px-2 py-[5px] font-texto text-[13px] leading-[1.2] capitalize ${COLOR_ESTADO[c.estado]}`}

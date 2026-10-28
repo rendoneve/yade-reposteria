@@ -1,3 +1,5 @@
+import { CircleUserRound } from 'lucide-react'
+import { useSesion } from '../lib/auth'
 import { useNegocio } from '../lib/negocio'
 import { Link, useRuta } from '../lib/router'
 
@@ -11,6 +13,12 @@ const ENLACES = [
 export default function Encabezado() {
   const { path } = useRuta()
   const { logo, nombre } = useNegocio()
+  const { usuario } = useSesion()
+  const cuenta = !usuario
+    ? { to: '/entrar', texto: 'Entrar' }
+    : usuario.rol === 'admin'
+      ? { to: '/admin', texto: 'Panel' }
+      : { to: '/cuenta', texto: 'Mi cuenta' }
   return (
     <header className="absolute top-4 left-1/2 z-5 flex h-14 w-[min(1440px,calc(100%-48px))] -translate-x-1/2 items-center max-[760px]:h-auto max-[760px]:flex-wrap max-[760px]:gap-2.5">
       <Link to="/" className="flex-none" aria-label="Inicio">
@@ -32,8 +40,16 @@ export default function Encabezado() {
         ))}
       </nav>
       <Link
+        to={cuenta.to}
+        className="ml-auto mr-4 flex items-center gap-1.5 font-ui text-base leading-none font-semibold text-white transition-colors hover:text-caramelo max-[760px]:mr-3.5"
+        aria-current={path.startsWith(cuenta.to) ? 'page' : undefined}
+      >
+        <CircleUserRound size={22} aria-hidden="true" />
+        <span className="max-[760px]:sr-only">{cuenta.texto}</span>
+      </Link>
+      <Link
         to="/agendar"
-        className="ml-auto flex h-[42px] items-center rounded-xl bg-beige px-[22px] font-ui text-lg leading-none text-tinto-texto transition-colors hover:bg-white max-[760px]:h-[38px] max-[760px]:px-3.5 max-[760px]:text-[15px]"
+        className="flex h-[42px] items-center rounded-xl bg-beige px-[22px] font-ui text-lg leading-none text-tinto-texto transition-colors hover:bg-white max-[760px]:h-[38px] max-[760px]:px-3.5 max-[760px]:text-[15px]"
       >
         Agendar cita
       </Link>

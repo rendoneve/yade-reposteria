@@ -56,11 +56,20 @@ ACTUALIZACIONES = [
     # tipo_servicio dejó de ser solo especial | individual | pasteles: también acepta categorías
     "ALTER TABLE citas.citas DROP CONSTRAINT IF EXISTS citas_tipo_servicio_check",
     "ALTER TABLE citas.citas ALTER COLUMN tipo_servicio TYPE VARCHAR(100)",
+    # Citas de clientes con cuenta y productos de cada cita
+    "ALTER TABLE citas.citas ADD COLUMN IF NOT EXISTS usuario_id INTEGER",
+    "CREATE INDEX IF NOT EXISTS ix_citas_usuario ON citas.citas (usuario_id, fecha DESC)",
+    """CREATE TABLE IF NOT EXISTS citas.cita_productos (
+        cita_id     INTEGER      NOT NULL REFERENCES citas.citas (id) ON DELETE CASCADE,
+        producto_id INTEGER      NOT NULL,
+        nombre      VARCHAR(150) NOT NULL,
+        PRIMARY KEY (cita_id, producto_id)
+    )""",
 ]
 
 
 def actualizar_tablas() -> None:
-    """Aplica los cambios en citas.citas en bases creadas con una versión anterior de schema.sql."""
+    """Aplica los cambios en el schema citas en bases creadas con una versión anterior de schema.sql."""
     with engine.begin() as conn:
         for sentencia in ACTUALIZACIONES:
             conn.execute(text(sentencia))

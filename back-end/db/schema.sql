@@ -2,7 +2,7 @@
 --  Pastelería — Base de datos general (PostgreSQL / Neon)
 -- ---------------------------------------------------------------------
 --  Una sola base de datos, un SCHEMA por servicio:
---    auth       -> auth-service       (usuarios administradores)
+--    auth       -> auth-service       (administradores y clientes)
 --    catalogo   -> catalogo-service   (categorías, productos, etiquetas, reseñas)
 --    citas      -> citas-service      (citas en sucursal)
 --    negocio    -> negocio-service    (contenido del sitio y horarios)
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS auth.usuarios (
     password_hash   VARCHAR(255) NOT NULL,          -- nunca la contraseña en texto plano (bcrypt)
     telefono        VARCHAR(20),
     rol             VARCHAR(20)  NOT NULL DEFAULT 'admin'
-                    CHECK (rol IN ('admin')),
+                    CHECK (rol IN ('admin', 'cliente')),   -- cliente = cuenta creada desde el sitio
     activo          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
@@ -85,17 +85,31 @@ CREATE TABLE IF NOT EXISTS catalogo.producto_etiqueta (
     PRIMARY KEY (producto_id, etiqueta_id)
 );
 
+-- Las captura el administrador o las deja un cliente sobre una de sus citas terminadas
 CREATE TABLE IF NOT EXISTS catalogo.resenas (
     id             SERIAL       PRIMARY KEY,
     nombre_cliente VARCHAR(100) NOT NULL,
     descripcion    TEXT         NOT NULL,
     fecha          DATE         NOT NULL DEFAULT CURRENT_DATE,
-    producto_id    INTEGER      NOT NULL
-                   REFERENCES catalogo.productos (id) ON DELETE CASCADE
+    usuario_id     INTEGER,                         -- auth.usuarios (sin FK: otro servicio)
+    cita_id        INTEGER                          -- citas.citas   (sin FK: otro servicio)
 );
 
-CREATE INDEX IF NOT EXISTS ix_resenas_producto
-    ON catalogo.resenas (producto_id);
+-- Una reseña por cita
+CREATE UNIQUE INDEX IF NOT EXISTS ux_resenas_cita
+    ON catalogo.resenas (cita_id);
+CREATE INDEX IF NOT EXISTS ix_resenas_usuario
+    ON catalogo.resenas (usuario_id);
+
+-- Una reseña habla de uno o varios productos (los de la cita)
+CREATE TABLE IF NOT EXISTS catalogo.resena_producto (
+    resena_id   INTEGER NOT NULL REFERENCES catalogo.resenas (id) ON DELETE CASCADE,
+    producto_id INTEGER NOT NULL REFERENCES catalogo.productos (id) ON DELETE CASCADE,
+    PRIMARY KEY (resena_id, producto_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_resena_producto_producto
+    ON catalogo.resena_producto (producto_id);
 
 
 -- =====================================================================
@@ -111,6 +125,7 @@ CREATE TABLE IF NOT EXISTS citas.citas (
     tipo_servicio  VARCHAR(100) NOT NULL,                -- especial | individual | pasteles | nombre de una categoría
     estado         VARCHAR(20)  NOT NULL DEFAULT 'proximo'
                    CHECK (estado IN ('proximo', 'cancelado', 'en proceso', 'terminado')),
+    usuario_id     INTEGER,                              -- cliente con cuenta (auth.usuarios, sin FK)
     created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -118,6 +133,19 @@ CREATE TABLE IF NOT EXISTS citas.citas (
 -- Para GET /citas/proximas/count y para listar la agenda por fecha
 CREATE INDEX IF NOT EXISTS ix_citas_estado_fecha
     ON citas.citas (estado, fecha);
+
+-- "Mis citas" del cliente
+CREATE INDEX IF NOT EXISTS ix_citas_usuario
+    ON citas.citas (usuario_id, fecha DESC);
+
+-- Productos del catálogo que se piden en la cita (sin FK: otro servicio).
+-- Se guarda el nombre al agendar para mostrarlo aunque el producto cambie o se borre.
+CREATE TABLE IF NOT EXISTS citas.cita_productos (
+    cita_id     INTEGER      NOT NULL REFERENCES citas.citas (id) ON DELETE CASCADE,
+    producto_id INTEGER      NOT NULL,
+    nombre      VARCHAR(150) NOT NULL,
+    PRIMARY KEY (cita_id, producto_id)
+);
 
 
 -- =====================================================================

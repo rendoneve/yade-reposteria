@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     internal_api_key: str  # clave para llamadas entre servicios
     actividad_service_url: str = "http://127.0.0.1:8005"
+    citas_service_url: str = "http://127.0.0.1:8003"
 
     # Bucket de imágenes (cualquier almacenamiento compatible con S3).
     # Mientras S3_BUCKET esté vacío, POST /imagenes responde 503.

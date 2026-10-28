@@ -25,6 +25,12 @@ export function useRuta() {
   return ruta
 }
 
+/* ?siguiente=/agendar: a dónde volver después de entrar (solo rutas del propio sitio). */
+export function rutaSiguiente(query: URLSearchParams): string | null {
+  const s = query.get('siguiente')
+  return s && s.startsWith('/') && !s.startsWith('//') ? s : null
+}
+
 type LinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }
 
 export function Link({ to, onClick, ...resto }: LinkProps) {

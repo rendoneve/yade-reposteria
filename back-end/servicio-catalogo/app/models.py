@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Numeric, String, Table, Text, func
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import SCHEMA, Base
@@ -11,6 +11,14 @@ producto_etiqueta = Table(
     Base.metadata,
     Column("producto_id", ForeignKey(f"{SCHEMA}.productos.id", ondelete="CASCADE"), primary_key=True),
     Column("etiqueta_id", ForeignKey(f"{SCHEMA}.etiquetas.id", ondelete="CASCADE"), primary_key=True),
+)
+
+# Una reseña habla de uno o varios productos (los de la cita que se reseña)
+resena_producto = Table(
+    "resena_producto",
+    Base.metadata,
+    Column("resena_id", ForeignKey(f"{SCHEMA}.resenas.id", ondelete="CASCADE"), primary_key=True),
+    Column("producto_id", ForeignKey(f"{SCHEMA}.productos.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -56,8 +64,10 @@ class Resena(Base):
     nombre_cliente: Mapped[str] = mapped_column(String(100))
     descripcion: Mapped[str] = mapped_column(Text)
     fecha: Mapped[date] = mapped_column(Date, server_default=func.current_date())
-    producto_id: Mapped[int] = mapped_column(
-        ForeignKey(f"{SCHEMA}.productos.id", ondelete="CASCADE")
-    )
+    # Reseñas que deja un cliente con cuenta: su usuario (auth) y la cita terminada (citas), sin FK
+    usuario_id: Mapped[int | None] = mapped_column(Integer)
+    cita_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
-    producto: Mapped[Producto] = relationship(lazy="joined")
+    productos: Mapped[list[Producto]] = relationship(
+        secondary=resena_producto, lazy="selectin", order_by=Producto.nombre
+    )

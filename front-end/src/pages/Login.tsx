@@ -8,7 +8,7 @@ const controlLogin = `${controlAdmin} px-3 py-2.5 text-base`
 
 /* Inicio de sesión del panel (no está en Figma; usa la paleta del panel). */
 export default function Login() {
-  const { entrar } = useSesion()
+  const { entrar, salir } = useSesion()
   const { logo, nombre } = useNegocio()
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -19,7 +19,12 @@ export default function Login() {
     setEnviando(true)
     setError(null)
     try {
-      await entrar(String(f.get('usuario')), String(f.get('password')))
+      const u = await entrar(String(f.get('usuario')), String(f.get('password')))
+      // Las cuentas de clientes no entran al panel
+      if (u.rol !== 'admin') {
+        salir()
+        setError('Esta cuenta no tiene acceso al panel de administración.')
+      }
     } catch (err) {
       setError((err as Error).message)
     } finally {

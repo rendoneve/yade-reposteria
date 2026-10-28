@@ -19,5 +19,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     internal_api_key: str  # clave para llamadas entre servicios
     actividad_service_url: str = "http://127.0.0.1:8005"
+    catalogo_service_url: str = "http://127.0.0.1:8002"
 
 settings = Settings()

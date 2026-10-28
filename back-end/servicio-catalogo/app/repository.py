@@ -72,10 +72,26 @@ def contar_productos(db: Session) -> int:
 
 # ---------- Reseñas ----------
 def listar_resenas(
-    db: Session, producto_id: int | None = None, limit: int = 100, offset: int = 0
+    db: Session,
+    producto_id: int | None = None,
+    usuario_id: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[Resena]:
     stmt = select(Resena)
     if producto_id is not None:
-        stmt = stmt.where(Resena.producto_id == producto_id)
+        stmt = stmt.where(Resena.productos.any(Producto.id == producto_id))
+    if usuario_id is not None:
+        stmt = stmt.where(Resena.usuario_id == usuario_id)
     stmt = stmt.order_by(Resena.fecha.desc(), Resena.id.desc()).limit(limit).offset(offset)
     return list(db.scalars(stmt).unique())
+
+
+def resena_de_cita(db: Session, cita_id: int) -> Resena | None:
+    return db.scalars(select(Resena).where(Resena.cita_id == cita_id)).first()
+
+
+def productos_por_id(db: Session, ids: list[int]) -> list[Producto]:
+    if not ids:
+        return []
+    return list(db.scalars(select(Producto).where(Producto.id.in_(ids))).unique())

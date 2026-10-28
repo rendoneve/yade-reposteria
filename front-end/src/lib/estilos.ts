@@ -26,9 +26,12 @@ export const accionesAdmin = 'mt-1.5 flex justify-end gap-2.5'
 export const campoPublico = 'flex flex-col gap-1.5 font-ui text-sm leading-[1.2] font-semibold text-tinto-texto'
 export const controlPublico =
   'rounded-lg border border-rosa-vino bg-white px-3 py-2.5 font-texto text-base leading-[1.3] font-normal text-black'
+export const errorPublico = 'font-ui text-sm leading-[1.4] font-semibold text-error'
 
 // ---------- Tarjetas ----------
 export const tarjetaCrema = 'rounded-[18px] bg-crema shadow-tarjeta'
+// Formularios de entrar / crear cuenta
+export const tarjetaCuenta = `${tarjetaCrema} mx-auto flex max-w-[520px] flex-col gap-4 px-[34px] py-8 max-[560px]:px-5`
 export const tarjetaAdmin = `${tarjetaCrema} mb-6 min-h-[340px] max-[960px]:overflow-x-auto max-[960px]:px-3.5 max-[960px]:py-5`
 export const tituloTarjetaAdmin = 'font-ui text-[19px] leading-[1.3] font-semibold text-tinto-texto'
 
@@ -54,5 +57,9 @@ export const fondoLogin =
   'grid min-h-screen place-items-center bg-tinto-oscuro bg-[linear-gradient(180deg,rgba(155,61,79,0)_0%,#300e15_100%)] p-6'
 
 // ---------- Chips ----------
+// Producto ligado a una cita o reseña
+export const chipProducto =
+  'rounded-[9px] border border-rosa-vino bg-white/60 px-2.5 py-0.5 font-texto text-[13px] leading-5 text-tinto-texto'
+
 export const chipFiltro =
   'h-[26px] rounded-[9px] border border-rosa-vino bg-tinto-texto/10 font-texto text-[13px] leading-4 whitespace-nowrap text-black transition-colors aria-pressed:border-tinto aria-pressed:bg-tinto aria-pressed:text-white'

@@ -6,7 +6,7 @@ con un *schema* por servicio. El front-end solo habla con el **gateway**.
 | Servicio | Puerto | Schema | Qué hace |
 |---|---|---|---|
 | servicio-gateway | 8000 | — | Única entrada (`/api/...`), CORS, reenvía a cada servicio |
-| servicio-auth | 8001 | `auth` | Login, JWT, usuarios administradores |
+| servicio-auth | 8001 | `auth` | Login, registro de clientes, JWT, usuarios |
 | servicio-catalogo | 8002 | `catalogo` | Categorías, productos, etiquetas, reseñas |
 | servicio-citas | 8003 | `citas` | Citas en sucursal |
 | servicio-negocio | 8004 | `negocio` | Nombre, logo, hero, banner, textos, WhatsApp, ubicación, horarios |
@@ -55,11 +55,12 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 
 ## Endpoints (vía gateway, prefijo `http://localhost:8000/api`)
 
-🔓 = público · 🔒 = requiere `Authorization: Bearer <token>`
+🔓 = público · 👤 = cualquier usuario con sesión (cliente o administrador) · 🔒 = solo administradores
 
 **Auth**
-- 🔓 `POST /auth/login` `{ "usuario": "admin o correo", "password": "..." }` → `access_token`, `usuario`
-- 🔒 `GET /auth/me` · `PATCH /auth/me` · `PUT /auth/me/password` `{ "actual", "nueva" }`
+- 🔓 `POST /auth/login` `{ "usuario": "usuario o correo", "password": "..." }` → `access_token`, `usuario` (con `rol`)
+- 🔓 `POST /auth/registro` `{ "nombre_completo", "username", "correo", "password", "telefono"? }` → crea un **cliente** y devuelve `access_token`
+- 👤 `GET /auth/me` · `PATCH /auth/me` · `PUT /auth/me/password` `{ "actual", "nueva" }`
 - 🔒 `GET/POST /usuarios` · `GET/PATCH/DELETE /usuarios/{id}`
 
 **Catálogo**
@@ -70,10 +71,15 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
   (`etiquetas` es una lista de nombres: `["mas vendidos", "sin azucar"]`)
 - 🔓 `GET /etiquetas` · 🔒 `POST /etiquetas` · `DELETE /etiquetas/{id}`
 - 🔓 `GET /resenas?producto_id=` · `GET /resenas/{id}` · 🔒 `POST /resenas` · `PATCH/DELETE /resenas/{id}`
+  (`producto_ids` es una lista: una reseña puede hablar de varios productos)
+- 👤 `GET /resenas/mias` · `POST /resenas/mias` `{ "cita_id", "descripcion" }` — solo sobre una cita **propia y terminada**,
+  una vez por cita; queda ligada a la cita y a sus productos (se valida con servicio-citas por HTTP)
 
 **Citas**
 - 🔓 `POST /citas` — formulario del sitio; la fecha debe ser futura y llevar zona horaria
-  (`2026-11-05T16:00:00-07:00`). Siempre queda en estado `proximo`.
+  (`2026-11-05T16:00:00-07:00`). Siempre queda en estado `proximo`. Acepta `producto_ids` (se validan con
+  servicio-catalogo y se guarda su nombre). Si va con token, la cita queda en la cuenta del cliente.
+- 👤 `GET /citas/mias` · `PATCH /citas/mias/{id}/cancelar` (solo si está `proximo` y su fecha no ha pasado)
 - 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count` · `GET /citas/terminadas/count`
 - 🔒 `POST /citas/admin` (captura del administrador) · `GET/PATCH/DELETE /citas/{id}` · `PATCH /citas/{id}/estado`
 
@@ -85,6 +91,7 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 - 🔒 `GET /actividades?tipo=&persona=&limit=&offset=`
 - 🔒 `GET /estadisticas` → `productos_en_catalogo`, `citas_proximas`, `citas_terminadas`, `actividad_reciente`, `errores`
 - `POST /actividades` es interno (header `X-Internal-Key`); el gateway lo bloquea desde afuera.
+- `GET /citas/interno/{id}` también es interno (lo usa servicio-catalogo para validar reseñas).
 
 Valores permitidos: disponibilidad `bajo pedido | stock | proximamente` ·
 tipo de cita `especial | individual | pasteles` o el nombre de una categoría del catálogo · estado `proximo | cancelado | en proceso | terminado`.
@@ -107,6 +114,7 @@ servicio-x/
 
 - Ningún servicio lee tablas de otro schema: si necesita datos, los pide por HTTP.
 - El JWT lo firma `servicio-auth`; los demás solo lo verifican con el mismo `JWT_SECRET`.
+  Lleva el `role` (`admin` o `cliente`): los endpoints de administración rechazan a los clientes con 403.
 - Los cambios (crear, editar, eliminar) se registran solos en `servicio-actividad`.
   Si ese servicio está caído, la operación igual se completa.
 - No hay migraciones: si cambias un modelo, actualiza `db/schema.sql` y agrega el

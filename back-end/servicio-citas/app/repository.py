@@ -51,3 +51,9 @@ def contar_proximas(db: Session) -> int:
 def contar_terminadas(db: Session) -> int:
     stmt = select(func.count(Cita.id)).where(Cita.estado == "terminado")
     return db.scalar(stmt) or 0
+
+
+def listar_de_usuario(db: Session, usuario_id: int) -> list[Cita]:
+    """Citas de un cliente, las más recientes primero."""
+    stmt = select(Cita).where(Cita.usuario_id == usuario_id).order_by(Cita.fecha.desc(), Cita.id.desc())
+    return list(db.scalars(stmt))

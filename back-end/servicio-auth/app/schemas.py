@@ -39,6 +39,16 @@ class UsuarioIn(BaseModel):
     telefono: str | None = TELEFONO
 
 
+class RegistroIn(BaseModel):
+    """Cuenta de cliente creada desde el sitio."""
+
+    nombre_completo: str = Field(min_length=1, max_length=150)
+    username: str = USERNAME
+    correo: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    telefono: str | None = TELEFONO
+
+
 class UsuarioUpdate(BaseModel):
     nombre_completo: str | None = Field(default=None, min_length=1, max_length=150)
     username: str | None = Field(

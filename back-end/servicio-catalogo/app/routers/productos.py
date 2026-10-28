@@ -104,6 +104,6 @@ def editar_producto(
 def eliminar_producto(producto_id: int, admin: Admin, db: DB, tareas: BackgroundTasks):
     p = _obtener_o_404(db, producto_id)
     nombre = p.nombre
-    db.delete(p)  # sus reseñas se borran también (ON DELETE CASCADE)
+    db.delete(p)  # sus reseñas se quedan; solo se quita el vínculo (ON DELETE CASCADE)
     db.commit()
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó el producto {nombre}", "eliminacion")

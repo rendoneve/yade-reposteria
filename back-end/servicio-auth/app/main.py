@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from app import repository as repo
 from app.core.config import settings
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, actualizar_tablas
 from app.core.errores import registrar_manejadores
 from app.core.passwords import hash_password
 from app.models import Usuario
@@ -36,6 +36,7 @@ def crear_admin_inicial() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    actualizar_tablas()
     try:
         crear_admin_inicial()
     except Exception:  # la BD puede estar dormida; el servicio arranca igual

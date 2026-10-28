@@ -82,19 +82,34 @@ class ConteoOut(BaseModel):
     total: int
 
 
-# ---------- Reseñas (las captura el administrador) ----------
+# ---------- Reseñas ----------
+# Las captura el administrador o las deja un cliente sobre una cita terminada.
 class ResenaIn(BaseModel):
     nombre_cliente: str = Field(min_length=1, max_length=100)
     descripcion: str = Field(min_length=1)
-    producto_id: int
+    producto_ids: list[int] = Field(min_length=1, max_length=20)
     fecha: date | None = None  # si no se manda, la BD pone la fecha de hoy
 
 
 class ResenaUpdate(BaseModel):
     nombre_cliente: str | None = Field(default=None, min_length=1, max_length=100)
     descripcion: str | None = Field(default=None, min_length=1)
-    producto_id: int | None = None
+    producto_ids: list[int] | None = Field(default=None, min_length=1, max_length=20)
     fecha: date | None = None
+
+
+class MiResenaIn(BaseModel):
+    """Reseña de un cliente: va ligada a su cita terminada y a los productos de esa cita."""
+
+    cita_id: int
+    descripcion: str = Field(min_length=1, max_length=2000)
+
+
+class ProductoResenaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
 
 
 class ResenaOut(BaseModel):
@@ -104,5 +119,6 @@ class ResenaOut(BaseModel):
     nombre_cliente: str
     descripcion: str
     fecha: date
-    producto_id: int
-    producto_nombre: str | None = None
+    productos: list[ProductoResenaOut]
+    cita_id: int | None
+    usuario_id: int | None

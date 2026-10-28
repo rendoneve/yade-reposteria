@@ -3,12 +3,15 @@
 //   1. Revisa que estén Node, pnpm, Python y uv (si falta uv lo instala; lo demás explica cómo instalarlo).
 //   2. Instala con pnpm / uv las dependencias que falten o que cambiaron (p. ej. después de un pull).
 // Uso (desde la raíz del proyecto):   node dev.mjs     (o ./dev.sh en Linux, dev.cmd en Windows)
+// Con --host el sitio también se abre para otros dispositivos de la red (celular, otra PC):
+//   ./dev.sh --host                 usa la IP local que detecte
+//   ./dev.sh --host 192.168.1.50    usa esa IP
 // Ctrl+C detiene todo.
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, networkInterfaces } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +28,23 @@ const servicios = [
   { nombre: "actividad", puerto: 8005 },
   { nombre: "gateway", puerto: 8000 },
 ].map((s) => ({ ...s, carpeta: join(dirBack, `servicio-${s.nombre}`) }));
+
+// --host [ip] / --host=ip: expone el front-end y el gateway en la red local
+const args = process.argv.slice(2);
+const iHost = args.findIndex((a) => a === "--host" || a.startsWith("--host="));
+const ipRed =
+  iHost === -1
+    ? null
+    : args[iHost].split("=")[1] ||
+      (args[iHost + 1] && !args[iHost + 1].startsWith("--") ? args[iHost + 1] : null) ||
+      Object.values(networkInterfaces())
+        .flat()
+        .find((i) => i.family === "IPv4" && !i.internal)?.address;
+if (iHost !== -1 && !ipRed) {
+  console.error("No se encontró una IP de red local. Indícala a mano: ./dev.sh --host 192.168.1.50");
+  process.exit(1);
+}
+const puertoFront = 5173;
 
 const color = (n, t) => `\x1b[${n}m${t}\x1b[0m`;
 const ok = (t) => console.log(color(32, "✔ ") + t);
@@ -179,15 +199,31 @@ for (const s of servicios) {
 
 titulo("Iniciando servicios…\n");
 
+// En modo red el front-end llama al gateway por la IP (localhost en el celular sería el propio celular),
+// así que el gateway escucha en todas las interfaces y acepta ese origen en CORS.
+const envRed = {};
+if (ipRed) {
+  const corsEnv = readFileSync(join(dirBack, ".env"), "utf8").match(/^CORS_ORIGINS=(.*)$/m)?.[1].trim();
+  const cors = corsEnv || process.env.CORS_ORIGINS || `http://localhost:${puertoFront},http://127.0.0.1:${puertoFront}`;
+  envRed.gateway = { CORS_ORIGINS: `${cors},http://${ipRed}:${puertoFront}` };
+  envRed["front-end"] = { VITE_API_URL: `http://${ipRed}:8000/api` };
+}
+
 const procesos = [
   ...servicios.map((s) => ({
     ...s,
     // "python -m fastapi" en lugar del ejecutable fastapi.exe: Smart App Control de Windows
     // bloquea los .exe que uv genera en .venv\Scripts (no están firmados), pero no python.exe.
-    comando: `uv run python -m fastapi dev app/main.py --port ${s.puerto}`,
+    comando: `uv run python -m fastapi dev app/main.py --port ${s.puerto}${ipRed && s.nombre === "gateway" ? " --host 0.0.0.0" : ""}`,
     url: `http://127.0.0.1:${s.puerto}/health`,
   })),
-  { nombre: "front-end", carpeta: dirFront, comando: "pnpm dev", url: null },
+  {
+    nombre: "front-end",
+    carpeta: dirFront,
+    // En modo red el puerto es fijo para que coincida con el origen permitido en CORS
+    comando: ipRed ? `pnpm dev --host 0.0.0.0 --port ${puertoFront} --strictPort` : "pnpm dev",
+    url: null,
+  },
 ];
 
 const colores = [36, 33, 35, 32, 34, 91, 96];
@@ -200,7 +236,7 @@ procesos.forEach((p, i) => {
     cwd: p.carpeta,
     shell: true,
     detached: !esWindows, // grupo de procesos propio para poder matarlo completo en Linux
-    env: { ...process.env, FORCE_COLOR: "1" },
+    env: { ...process.env, FORCE_COLOR: "1", ...envRed[p.nombre] },
   });
 
   const imprimir = (datos) => {
@@ -248,6 +284,7 @@ async function esperarListos(limiteMs = 180_000) {
     console.log(`    Sitio:    ${front.url}`);
     console.log(`    Panel:    ${new URL("/admin", front.url)}`);
     console.log("    Gateway:  http://localhost:8000/health");
+    if (ipRed) console.log(`    En la red: http://${ipRed}:${puertoFront}  (desde otros dispositivos)`);
     console.log("    Ctrl+C para detener todo");
     console.log(color(32, linea) + "\n");
   } else {

@@ -108,12 +108,15 @@ export async function resolverImagen(cambio: CambioImagen, actual: string | null
 export type Disponibilidad = 'bajo pedido' | 'stock' | 'proximamente'
 export type EstadoCita = 'proximo' | 'cancelado' | 'en proceso' | 'terminado'
 
+export type Rol = 'admin' | 'cliente'
+
 export type Usuario = {
   id: number
   nombre_completo: string
   username: string
   correo: string
   telefono: string | null
+  rol: Rol
 }
 
 export type Categoria = {
@@ -147,6 +150,18 @@ export type Cita = {
   detalles: string | null
   tipo_servicio: string // nombre de la categoría
   estado: EstadoCita
+  usuario_id: number | null // cliente con cuenta que la agendó
+  productos: { producto_id: number; nombre: string }[]
+}
+
+export type Resena = {
+  id: number
+  nombre_cliente: string
+  descripcion: string
+  fecha: string // YYYY-MM-DD
+  productos: { id: number; nombre: string }[]
+  cita_id: number | null
+  usuario_id: number | null
 }
 
 export type Horario = { dia_semana: number; dia: string; abre: string | null; cierra: string | null; cerrado: boolean }
@@ -181,6 +196,13 @@ export const formatoPrecio = (p: string | number) => moneda.format(Number(p))
 
 const fechaHora = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 export const formatoFecha = (iso: string) => fechaHora.format(new Date(iso))
+
+const soloFecha = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' })
+// "2026-10-27" sin hora: se lee como fecha local (new Date('2026-10-27') sería UTC y podría salir un día antes)
+export const formatoDia = (ymd: string) => {
+  const [a, m, d] = ymd.split('-').map(Number)
+  return soloFecha.format(new Date(a, m - 1, d))
+}
 
 // El tipo de una cita es uno de estos servicios o el nombre de una categoría del catálogo
 export const ETIQUETA_SERVICIO: Record<string, string> = {
