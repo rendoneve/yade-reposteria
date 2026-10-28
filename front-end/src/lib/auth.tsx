@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, guardarToken, leerToken, type Usuario } from './api'
+import { api, ErrorApi, guardarToken, leerToken, type Usuario } from './api'
 
 export type DatosRegistro = {
   nombre_completo: string
@@ -21,27 +21,56 @@ type Sesion = {
 type RespuestaToken = { access_token: string; usuario: Usuario }
 
 const Contexto = createContext<Sesion | null>(null)
+const CLAVE_USUARIO = 'yade_usuario'
+
+function leerUsuarioGuardado(): Usuario | null {
+  try {
+    const texto = localStorage.getItem(CLAVE_USUARIO)
+    if (!texto) return null
+    const usuario = JSON.parse(texto) as Usuario
+    return usuario && typeof usuario.id === 'number' && typeof usuario.rol === 'string' ? usuario : null
+  } catch {
+    return null
+  }
+}
+
+function guardarUsuario(usuario: Usuario | null) {
+  try {
+    if (usuario) localStorage.setItem(CLAVE_USUARIO, JSON.stringify(usuario))
+    else localStorage.removeItem(CLAVE_USUARIO)
+  } catch {
+    // El perfil en caché solo acelera la interfaz; la API siempre valida el token.
+  }
+}
 
 export function ProveedorSesion({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [cargando, setCargando] = useState(() => leerToken() !== null)
+  const [usuario, setUsuario] = useState<Usuario | null>(() => leerToken() ? leerUsuarioGuardado() : null)
+  const [cargando, setCargando] = useState(() => leerToken() !== null && leerUsuarioGuardado() === null)
 
   useEffect(() => {
     if (!leerToken()) return
     api<Usuario>('/auth/me')
-      .then(setUsuario)
-      .catch(() => guardarToken(null))
+      .then((actual) => { guardarUsuario(actual); setUsuario(actual) })
+      .catch((error: Error) => {
+        // Una caída temporal del backend no debe cerrar una sesión válida.
+        if (error instanceof ErrorApi && error.status === 401) {
+          guardarToken(null)
+          guardarUsuario(null)
+          setUsuario(null)
+        }
+      })
       .finally(() => setCargando(false))
   }, [])
 
   useEffect(() => {
-    const expirada = () => setUsuario(null)
+    const expirada = () => { guardarUsuario(null); setUsuario(null) }
     window.addEventListener('sesion-expirada', expirada)
     return () => window.removeEventListener('sesion-expirada', expirada)
   }, [])
 
   const iniciar = useCallback((r: RespuestaToken) => {
     guardarToken(r.access_token)
+    guardarUsuario(r.usuario)
     setUsuario(r.usuario)
     return r.usuario
   }, [])
@@ -60,10 +89,16 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
 
   const salir = useCallback(() => {
     guardarToken(null)
+    guardarUsuario(null)
     setUsuario(null)
   }, [])
 
-  return <Contexto.Provider value={{ usuario, cargando, entrar, registrar, actualizar: setUsuario, salir }}>{children}</Contexto.Provider>
+  const actualizar = useCallback((actual: Usuario) => {
+    guardarUsuario(actual)
+    setUsuario(actual)
+  }, [])
+
+  return <Contexto.Provider value={{ usuario, cargando, entrar, registrar, actualizar, salir }}>{children}</Contexto.Provider>
 }
 
 export function useSesion() {

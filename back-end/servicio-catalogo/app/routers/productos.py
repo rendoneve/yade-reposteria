@@ -50,10 +50,11 @@ def listar_productos(
     etiqueta: str | None = Query(default=None, examples=["mas vendidos"]),
     disponibilidad: Disponibilidad | None = None,
     q: str | None = Query(default=None, description="Busca en nombre y descripción"),
+    ids: list[int] | None = Query(default=None, max_length=20, description="Filtra por IDs (uso interno por lotes)"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    productos = repo.listar_productos(db, categoria_id, etiqueta, disponibilidad, q, limit, offset)
+    productos = repo.listar_productos(db, categoria_id, etiqueta, disponibilidad, q, ids, limit, offset)
     return [_out(p) for p in productos]
 
 
@@ -61,6 +62,11 @@ def listar_productos(
 @router.get("/count", response_model=ConteoOut)
 def contar_productos(db: DB):
     return ConteoOut(total=repo.contar_productos(db))
+
+
+@router.get("/resumen")
+def resumen_productos(db: DB):
+    return repo.resumen_productos(db)
 
 
 @router.get("/{producto_id}", response_model=ProductoOut)

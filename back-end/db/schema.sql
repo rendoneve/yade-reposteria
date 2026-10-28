@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS auth.usuarios (
     nombre_completo VARCHAR(150) NOT NULL,
     username        VARCHAR(50)  NOT NULL UNIQUE,
     correo          VARCHAR(150) NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,          -- nunca la contraseña en texto plano (bcrypt)
+    password_hash   VARCHAR(255) NOT NULL,          -- nunca la contraseña en texto plano (PBKDF2-SHA256)
     telefono        VARCHAR(20),
     rol             VARCHAR(20)  NOT NULL DEFAULT 'admin'
                     CHECK (rol IN ('admin', 'cliente')),   -- cliente = cuenta creada desde el sitio

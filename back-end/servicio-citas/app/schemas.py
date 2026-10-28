@@ -94,3 +94,22 @@ class CitaInternaOut(BaseModel):
 
 class ConteoOut(BaseModel):
     total: int
+
+
+class CitaPanelOut(BaseModel):
+    """Campos mínimos para el resumen administrativo."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    fecha: datetime
+    nombre_cliente: str
+    telefono: str
+    correo: str | None
+    detalles: str | None
+
+
+class ResumenAdminOut(BaseModel):
+    citas_proximas: int
+    citas_terminadas: int
+    siguientes: list[CitaPanelOut]

@@ -1,8 +1,8 @@
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 
 from app.models import Cita
 
@@ -51,6 +51,23 @@ def contar_proximas(db: Session) -> int:
 def contar_terminadas(db: Session) -> int:
     stmt = select(func.count(Cita.id)).where(Cita.estado == "terminado")
     return db.scalar(stmt) or 0
+
+
+def resumen_admin(db: Session) -> dict:
+    """Datos que el panel necesita; resuelve los dos conteos y las siguientes citas en una visita HTTP."""
+    ahora = datetime.now(UTC)
+    siguientes = list(db.scalars(
+        select(Cita)
+        .options(lazyload(Cita.productos))
+        .where(Cita.estado == "proximo", Cita.fecha >= ahora)
+        .order_by(Cita.fecha, Cita.id)
+        .limit(3)
+    ))
+    return {
+        "citas_proximas": contar_proximas(db),
+        "citas_terminadas": contar_terminadas(db),
+        "siguientes": siguientes,
+    }
 
 
 def listar_de_usuario(db: Session, usuario_id: int) -> list[Cita]:

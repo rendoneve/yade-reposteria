@@ -7,8 +7,8 @@ TELEFONO = Field(default=None, max_length=20, pattern=r"^[0-9+()\s-]{7,20}$")
 
 
 class LoginIn(BaseModel):
-    usuario: str = Field(min_length=1, description="Nombre de usuario o correo")
-    password: str = Field(min_length=1)
+    usuario: str = Field(min_length=1, max_length=150, description="Nombre de usuario o correo")
+    password: str = Field(min_length=1, max_length=128)
 
 
 class UsuarioOut(BaseModel):

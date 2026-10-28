@@ -80,7 +80,7 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
   (`2026-11-05T16:00:00-07:00`). Siempre queda en estado `proximo`. Acepta `producto_ids` (se validan con
   servicio-catalogo y se guarda su nombre). Si va con token, la cita queda en la cuenta del cliente.
 - 👤 `GET /citas/mias` · `PATCH /citas/mias/{id}/cancelar` (solo si está `proximo` y su fecha no ha pasado)
-- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count` · `GET /citas/terminadas/count`
+- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count` · `GET /citas/terminadas/count` · `GET /citas/resumen` (panel)
 - 🔒 `POST /citas/admin` (captura del administrador) · `GET/PATCH/DELETE /citas/{id}` · `PATCH /citas/{id}/estado`
 
 **Negocio**
@@ -89,7 +89,7 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 
 **Actividad**
 - 🔒 `GET /actividades?tipo=&persona=&limit=&offset=`
-- 🔒 `GET /estadisticas` → `productos_en_catalogo`, `citas_proximas`, `citas_terminadas`, `actividad_reciente`, `errores`
+- 🔒 `GET /estadisticas` → `productos_en_catalogo`, `inventario`, `citas_proximas`, `citas_terminadas`, `citas_siguientes`, `actividad_reciente`, `errores`
 - `POST /actividades` es interno (header `X-Internal-Key`); el gateway lo bloquea desde afuera.
 - `GET /citas/interno/{id}` también es interno (lo usa servicio-catalogo para validar reseñas).
 

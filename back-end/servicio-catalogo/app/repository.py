@@ -49,10 +49,13 @@ def listar_productos(
     etiqueta: str | None = None,
     disponibilidad: str | None = None,
     q: str | None = None,
+    ids: list[int] | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[Producto]:
     stmt = select(Producto)
+    if ids is not None:
+        stmt = stmt.where(Producto.id.in_(ids))
     if categoria_id is not None:
         stmt = stmt.where(Producto.categoria_id == categoria_id)
     if disponibilidad:
@@ -68,6 +71,18 @@ def listar_productos(
 
 def contar_productos(db: Session) -> int:
     return db.scalar(select(func.count(Producto.id))) or 0
+
+
+def resumen_productos(db: Session) -> dict[str, int]:
+    """Conteos para el panel, sin transferir todo el catálogo al navegador."""
+    filas = db.execute(
+        select(Producto.disponibilidad, func.count(Producto.id)).group_by(Producto.disponibilidad)
+    )
+    resumen = {"stock": 0, "bajo pedido": 0, "proximamente": 0}
+    for disponibilidad, cantidad in filas:
+        resumen[disponibilidad] = cantidad
+    resumen["total"] = sum(resumen.values())
+    return resumen
 
 
 # ---------- Reseñas ----------

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     internal_api_key: str  # clave para llamadas entre servicios
     actividad_service_url: str = "http://127.0.0.1:8005"
 
-    jwt_expire_minutes: int = 480  # 8 horas
+    jwt_expire_minutes: int = 120  # 2 horas; se puede ajustar en el entorno
 
     # Primer administrador: se crea al arrancar SOLO si no existe ningún usuario.
     admin_username: str | None = None

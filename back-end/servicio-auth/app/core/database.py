@@ -6,9 +6,11 @@ FastAPI ejecuta los endpoints `def` en un hilo aparte, así que no se bloquea.
 """
 
 import ssl
+import time
 from collections.abc import Iterator
 
 from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -36,9 +38,9 @@ def _crear_engine(raw_url: str):
         url,
         connect_args=connect_args,
         pool_pre_ping=True,  # Neon suspende el cómputo por inactividad y corta conexiones
-        pool_recycle=300,
-        pool_size=5,
-        max_overflow=5,
+        pool_recycle=180,
+        pool_size=2,
+        max_overflow=3,
     )
 
 
@@ -67,5 +69,20 @@ def actualizar_tablas() -> None:
 
 
 def get_db() -> Iterator[Session]:
-    with SessionLocal() as session:
+    session = None
+    for intento in range(2):
+        try:
+            session = SessionLocal()
+            session.connection()  # valida/reconecta antes de entrar a la ruta
+            break
+        except (InterfaceError, OperationalError):
+            if session:
+                session.close()
+            engine.dispose()
+            if intento:
+                raise
+            time.sleep(0.2)
+    try:
         yield session
+    finally:
+        session.close()

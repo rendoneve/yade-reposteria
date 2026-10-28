@@ -21,6 +21,6 @@ class Settings(BaseSettings):
     # Servicios a los que se les piden datos para las estadísticas
     catalogo_service_url: str = "http://127.0.0.1:8002"
     citas_service_url: str = "http://127.0.0.1:8003"
-    http_timeout: float = 3.0
+    http_timeout: float = 10.0
 
 settings = Settings()

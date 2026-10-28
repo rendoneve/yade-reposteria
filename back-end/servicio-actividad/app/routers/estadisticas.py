@@ -1,55 +1,60 @@
 import asyncio
-from typing import Annotated
-
-import httpx
-from fastapi import APIRouter, Depends, Query
+import time
+from fastapi import APIRouter, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.orm import Session
-
+from sqlalchemy.exc import InterfaceError, OperationalError
 from app import repository as repo
 from app.clients import servicios
-from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import SessionLocal, engine
 from app.core.security import Admin
 from app.schemas import ActividadOut, EstadisticasOut
 
 router = APIRouter(prefix="/estadisticas", tags=["Estadísticas"])
 
 
+def _listar_actividad_con_reintento(recientes: int):
+    for intento in range(2):
+        try:
+            with SessionLocal() as db:
+                return repo.listar(db, None, None, recientes, 0)
+        except (InterfaceError, OperationalError):
+            engine.dispose()
+            if intento:
+                raise
+            time.sleep(0.2)
+
+
 @router.get("", response_model=EstadisticasOut)
 async def estadisticas(
+    request: Request,
     admin: Admin,
-    db: Annotated[Session, Depends(get_db)],
     recientes: int = Query(default=10, ge=1, le=50),
 ):
     """Datos del panel. Si un servicio falla, ese dato viene en null y el motivo en `errores`."""
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as cliente:
-        productos, citas, terminadas, actividad = await asyncio.gather(
-            servicios.total_productos(cliente, admin.token),
-            servicios.total_citas_proximas(cliente, admin.token),
-            servicios.total_citas_terminadas(cliente, admin.token),
-            run_in_threadpool(repo.listar, db, None, None, recientes, 0),
-            return_exceptions=True,
-        )
+    productos, citas, actividad = await asyncio.gather(
+        servicios.resumen_productos(request.app.state.http, admin.token),
+        servicios.resumen_citas(request.app.state.http, admin.token),
+        run_in_threadpool(_listar_actividad_con_reintento, recientes),
+        return_exceptions=True,
+    )
 
     errores: dict[str, str] = {}
     if isinstance(productos, Exception):
-        errores["productos_en_catalogo"] = f"servicio-catalogo {productos}"
+        errores["productos"] = f"servicio-catalogo {productos}"
         productos = None
     if isinstance(citas, Exception):
-        errores["citas_proximas"] = f"servicio-citas {citas}"
+        errores["citas"] = f"servicio-citas {citas}"
         citas = None
-    if isinstance(terminadas, Exception):
-        errores["citas_terminadas"] = f"servicio-citas {terminadas}"
-        terminadas = None
     if isinstance(actividad, Exception):
         errores["actividad_reciente"] = "no se pudo leer el historial"
         actividad = []
 
     return EstadisticasOut(
-        productos_en_catalogo=productos,
-        citas_proximas=citas,
-        citas_terminadas=terminadas,
+        productos_en_catalogo=productos["total"] if productos else None,
+        inventario=productos,
+        citas_proximas=citas["citas_proximas"] if citas else None,
+        citas_terminadas=citas["citas_terminadas"] if citas else None,
+        citas_siguientes=citas["siguientes"] if citas else [],
         actividad_reciente=[ActividadOut.model_validate(a) for a in actividad],
         errores=errores,
     )

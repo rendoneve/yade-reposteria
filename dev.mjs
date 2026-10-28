@@ -230,7 +230,7 @@ const colores = [36, 33, 35, 32, 34, 91, 96];
 const ancho = Math.max(...procesos.map((p) => p.nombre.length));
 const sinColor = (t) => t.replace(/\x1b\[[0-9;]*m/g, "");
 
-procesos.forEach((p, i) => {
+function iniciarProceso(p, i) {
   const prefijo = color(colores[i % colores.length], `${p.nombre.padEnd(ancho)} |`) + " ";
   p.hijo = spawn(p.comando, {
     cwd: p.carpeta,
@@ -254,17 +254,42 @@ procesos.forEach((p, i) => {
     p.terminado = true;
     if (!cerrando) imprimir(`terminó (código ${codigo})`);
   });
-});
+}
 
 /* ---------- 4. Aviso de "todo listo" ---------- */
 
-const responde = async (url) => {
+const responde = async (url, exigirTodo = false) => {
   try {
-    return (await fetch(url, { signal: AbortSignal.timeout(2000) })).ok;
+    const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return false;
+    if (!exigirTodo) return true;
+    const estado = await r.json();
+    return estado.todo_ok === true;
   } catch {
     return false;
   }
 };
+
+async function esperarGrupo(grupo, etiqueta, limiteMs = 180_000, exigirTodo = false) {
+  const inicio = Date.now();
+  while (Date.now() - inicio < limiteMs && !cerrando) {
+    await Promise.all(grupo.map(async (p) => {
+      if (!p.listo && !p.terminado && p.url) p.listo = await responde(p.url, exigirTodo);
+    }));
+    if (grupo.every((p) => p.listo)) return true;
+    const caidos = grupo.filter((p) => p.terminado && !p.listo);
+    if (caidos.length) {
+      console.error(color(31, `\nNo se pudo iniciar ${etiqueta}: ${caidos.map((p) => p.nombre).join(", ")} se detuvo. Revisa el error anterior de ese servicio.`));
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!cerrando) {
+    const pendientes = grupo.filter((p) => !p.listo).map((p) => p.nombre);
+    console.error(color(31, `\nTiempo agotado esperando ${etiqueta}: ${pendientes.join(", ")}. Revisa conexión a PostgreSQL/Neon y los errores de arranque.`));
+  }
+  return false;
+}
 
 async function esperarListos(limiteMs = 180_000) {
   const inicio = Date.now();
@@ -301,7 +326,7 @@ function detener() {
   cerrando = true;
   console.log("\nDeteniendo servicios...");
   for (const { hijo } of procesos) {
-    if (hijo.exitCode !== null) continue;
+    if (!hijo || hijo.exitCode !== null) continue;
     try {
       if (esWindows) spawnSync("taskkill", ["/pid", String(hijo.pid), "/T", "/F"]);
       else process.kill(-hijo.pid, "SIGTERM");
@@ -310,6 +335,28 @@ function detener() {
   setTimeout(() => process.exit(0), 500);
 }
 
+async function arrancarPorEtapas() {
+  const backends = procesos.filter((p) => !["gateway", "front-end"].includes(p.nombre));
+  const gateway = procesos.find((p) => p.nombre === "gateway");
+  const front = procesos.find((p) => p.nombre === "front-end");
+
+  // Cada servicio termina de conectar/migrar antes de aceptar peticiones del navegador.
+  backends.forEach((p) => iniciarProceso(p, procesos.indexOf(p)));
+  if (!(await esperarGrupo(backends, "los servicios backend"))) {
+    detener();
+    return;
+  }
+
+  iniciarProceso(gateway, procesos.indexOf(gateway));
+  if (!(await esperarGrupo([gateway], "el gateway y sus dependencias", 60_000, true))) {
+    detener();
+    return;
+  }
+
+  iniciarProceso(front, procesos.indexOf(front));
+  await esperarListos();
+}
+
 process.on("SIGINT", detener);
 process.on("SIGTERM", detener);
-esperarListos();
+arrancarPorEtapas();

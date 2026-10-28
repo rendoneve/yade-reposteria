@@ -1,13 +1,15 @@
 from datetime import UTC, date, datetime
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app import repository as repo
 from app.core.actividad import registrar_actividad
 from app.core.catalogo import nombres_de_productos
-from app.core.database import get_db
+from app.core.database import engine, get_db
 from app.core.security import Admin, UsuarioActual, UsuarioOpcional, require_internal_key
 from app.models import Cita, CitaProducto
 from app.schemas import (
@@ -15,6 +17,7 @@ from app.schemas import (
     CitaIn,
     CitaInternaOut,
     CitaOut,
+    ResumenAdminOut,
     CitaPublicaOut,
     CitaUpdate,
     ConteoOut,
@@ -131,6 +134,22 @@ def contar_proximas(admin: Admin, db: DB):
 @router.get("/terminadas/count", response_model=ConteoOut)
 def contar_terminadas(admin: Admin, db: DB):
     return ConteoOut(total=repo.contar_terminadas(db))
+
+
+@router.get("/resumen", response_model=ResumenAdminOut)
+def resumen_admin(admin: Admin, db: DB):
+    for intento in range(2):
+        try:
+            return repo.resumen_admin(db)
+        except (InterfaceError, OperationalError):
+            db.rollback()
+            engine.dispose()
+            if intento:
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    "La base de datos se está reconectando. Vuelve a intentar.",
+                )
+            time.sleep(0.2)
 
 
 @router.post("/admin", response_model=CitaOut, status_code=status.HTTP_201_CREATED)

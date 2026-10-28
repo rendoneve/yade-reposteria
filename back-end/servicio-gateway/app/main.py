@@ -11,6 +11,7 @@
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
@@ -18,6 +19,8 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+
+log = logging.getLogger("uvicorn.error")
 
 SERVICIOS = {
     "auth": settings.auth_service_url,
@@ -130,8 +133,10 @@ async def _reenviar(request: Request, recurso: str, resto: str) -> Response:
             content=await request.body(),
         )
     except httpx.TimeoutException:
+        log.warning("Timeout al reenviar %s %s a servicio-%s", request.method, request.url.path, servicio)
         raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, f"servicio-{servicio} tardó demasiado")
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        log.warning("No se pudo conectar con servicio-%s (%s %s): %s", servicio, request.method, request.url.path, exc)
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, f"servicio-{servicio} no está disponible"
         )

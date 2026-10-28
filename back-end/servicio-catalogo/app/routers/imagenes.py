@@ -14,6 +14,21 @@ TIPOS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/g
 MAX_BYTES = 5 * 1024 * 1024
 
 
+def _contenido_valido(contenido: bytes, tipo: str) -> bool:
+    """Comprueba la firma del formato para no fiarse solo del MIME enviado por el navegador."""
+    if tipo == "image/jpeg":
+        return contenido.startswith(b"\xff\xd8\xff")
+    if tipo == "image/png":
+        return contenido.startswith(b"\x89PNG\r\n\x1a\n")
+    if tipo == "image/gif":
+        return contenido.startswith((b"GIF87a", b"GIF89a"))
+    if tipo == "image/webp":
+        return len(contenido) >= 12 and contenido[:4] == b"RIFF" and contenido[8:12] == b"WEBP"
+    if tipo == "image/avif":
+        return len(contenido) >= 12 and contenido[4:8] == b"ftyp" and b"avif" in contenido[8:64]
+    return False
+
+
 class ImagenOut(BaseModel):
     url: str
 
@@ -34,6 +49,8 @@ def subir_imagen(archivo: UploadFile, admin: Admin):
     contenido = archivo.file.read(MAX_BYTES + 1)
     if len(contenido) > MAX_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "La imagen pesa más de 5 MB")
+    if not _contenido_valido(contenido, archivo.content_type or ""):
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "El archivo no coincide con el formato declarado")
     try:
         url = almacenamiento.subir(contenido, archivo.content_type, extension)
     except ClientError as exc:

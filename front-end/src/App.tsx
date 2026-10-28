@@ -1,29 +1,32 @@
+import { lazy, Suspense } from 'react'
 import { Cargando } from './components/Estado'
 import { ProveedorSesion, useSesion } from './lib/auth'
 import { fondoLogin } from './lib/estilos'
 import { ProveedorNegocio } from './lib/negocio'
 import { useRuta } from './lib/router'
-import AcercaDe from './pages/AcercaDe'
-import AgendarCita from './pages/AgendarCita'
-import Catalogo from './pages/Catalogo'
-import Inicio from './pages/Inicio'
-import Login from './pages/Login'
-import Entrar from './pages/cuenta/Entrar'
-import MisCitas from './pages/cuenta/MisCitas'
-import MisResenas from './pages/cuenta/MisResenas'
-import Perfil from './pages/cuenta/Perfil'
-import Registro from './pages/cuenta/Registro'
-import Citas from './pages/admin/Citas'
-import Configuracion from './pages/admin/Configuracion'
-import Panel from './pages/admin/Panel'
-import Productos from './pages/admin/Productos'
-import Proximamente from './pages/admin/Proximamente'
+const AcercaDe = lazy(() => import('./pages/AcercaDe'))
+const AgendarCita = lazy(() => import('./pages/AgendarCita'))
+const Catalogo = lazy(() => import('./pages/Catalogo'))
+const Inicio = lazy(() => import('./pages/Inicio'))
+const Login = lazy(() => import('./pages/Login'))
+const Entrar = lazy(() => import('./pages/cuenta/Entrar'))
+const MisCitas = lazy(() => import('./pages/cuenta/MisCitas'))
+const MisResenas = lazy(() => import('./pages/cuenta/MisResenas'))
+const Perfil = lazy(() => import('./pages/cuenta/Perfil'))
+const Registro = lazy(() => import('./pages/cuenta/Registro'))
+const Citas = lazy(() => import('./pages/admin/Citas'))
+const Configuracion = lazy(() => import('./pages/admin/Configuracion'))
+const Panel = lazy(() => import('./pages/admin/Panel'))
+const Productos = lazy(() => import('./pages/admin/Productos'))
+const Proximamente = lazy(() => import('./pages/admin/Proximamente'))
 
 export default function App() {
   return (
     <ProveedorSesion>
       <ProveedorNegocio>
-        <Rutas />
+        <Suspense fallback={<div className={fondoLogin}><Cargando /></div>}>
+          <Rutas />
+        </Suspense>
       </ProveedorNegocio>
     </ProveedorSesion>
   )

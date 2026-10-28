@@ -4,7 +4,7 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +28,13 @@ def registrar_manejadores(app: FastAPI) -> None:
         log.exception("Error de conexión con la base de datos")
         return JSONResponse(
             status_code=503, content={"detail": "No se pudo conectar con la base de datos"}
+        )
+
+    @app.exception_handler(InterfaceError)
+    async def _conexion_reiniciada(request: Request, exc: InterfaceError):
+        log.warning("Conexión de base de datos reiniciada durante la solicitud: %s", exc)
+        return JSONResponse(
+            status_code=503, content={"detail": "La base de datos se está reconectando. Intenta de nuevo."}
         )
 
 

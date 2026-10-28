@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
-import { api, formatoFecha, type Cita, type Estadisticas, type Producto } from '../../lib/api'
+import { api, formatoFecha, type Estadisticas } from '../../lib/api'
 import { useSesion } from '../../lib/auth'
 import { Link } from '../../lib/router'
 import { celdaTd, celdaTh, enlaceDorado, tabla, tarjetaAdmin, tarjetaCrema, tituloTarjetaAdmin } from '../../lib/estilos'
 import { useDatos } from '../../lib/useDatos'
-
-const hoy = () => new Date().toLocaleDateString('en-CA') // AAAA-MM-DD local
 
 const COLOR_TIPO: Record<string, string> = {
   nuevo: 'bg-[#d5e4da] text-exito',
@@ -19,12 +17,10 @@ export default function Panel() {
   const { usuario } = useSesion()
   const [verTodo, setVerTodo] = useState(false)
   const stats = useDatos(() => api<Estadisticas>('/estadisticas', { params: { recientes: 20 } }))
-  const proximas = useDatos(() => api<Cita[]>('/citas', { params: { estado: 'proximo', desde: hoy(), limit: 3 } }))
-  const productos = useDatos(() => api<Producto[]>('/productos', { params: { limit: 500 } }))
 
   const nombre = usuario?.nombre_completo.split(' ')[0] ?? ''
   const actividad = stats.datos?.actividad_reciente ?? []
-  const inventario = conteoInventario(productos.datos ?? [])
+  const inventario = conteoInventario(stats.datos?.inventario ?? null)
 
   return (
     <AdminLayout titulo={`Bienvenide, ${nombre}`}>
@@ -34,6 +30,9 @@ export default function Panel() {
         <Stat titulo="Citas terminadas" valor={stats.datos?.citas_terminadas} cargando={stats.cargando} />
       </div>
       {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
+      {stats.datos && Object.entries(stats.datos.errores).map(([servicio, mensaje]) => (
+        <MensajeError key={servicio} texto={`${servicio}: ${mensaje}`} />
+      ))}
 
       <section className={`${tarjetaAdmin} px-7 pt-[26px] pb-[22px]`}>
         <h2 className={tituloTarjetaAdmin}>CITAS PROXIMAS</h2>
@@ -42,7 +41,7 @@ export default function Panel() {
             <tr>{['Fecha de cita', 'Usuario', 'Telefono', 'Correo', 'Detalles'].map((t) => <th key={t} className={celdaTh}>{t}</th>)}</tr>
           </thead>
           <tbody>
-            {proximas.datos?.map((c) => (
+            {stats.datos?.citas_siguientes.map((c) => (
               <tr key={c.id}>
                 <td className={celdaTd}>{formatoFecha(c.fecha)}</td>
                 <td className={celdaTd}>{c.nombre_cliente}</td>
@@ -53,9 +52,9 @@ export default function Panel() {
             ))}
           </tbody>
         </table>
-        {proximas.cargando && <Cargando />}
-        {proximas.error && <MensajeError texto={proximas.error} reintentar={proximas.recargar} />}
-        {proximas.datos?.length === 0 && <Vacio texto="No hay citas próximas." />}
+        {stats.cargando && <Cargando />}
+        {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
+        {stats.datos?.citas_siguientes.length === 0 && <Vacio texto="No hay citas próximas." />}
       </section>
 
       <div className="grid grid-cols-[843fr_565fr] gap-4 max-[960px]:grid-cols-1">
@@ -87,8 +86,8 @@ export default function Panel() {
 
         <section className={`${tarjetaAdmin} flex flex-col py-[22px] pr-7 pl-9`}>
           <h2 className={tituloTarjetaAdmin}>Uso de inventario</h2>
-          {productos.cargando && <Cargando />}
-          {productos.datos && (
+          {stats.cargando && <Cargando />}
+          {stats.datos?.inventario && (
             <ul className="mt-[22px] mb-[18px] flex flex-col gap-[18px]">
               {inventario.map((i) => (
                 <li key={i.etiqueta}>
@@ -118,12 +117,12 @@ function Stat({ titulo, valor, cargando }: { titulo: string; valor: number | nul
   )
 }
 
-function conteoInventario(productos: Producto[]) {
-  const total = productos.length || 1
+function conteoInventario(productos: { total: number; stock: number; 'bajo pedido': number; proximamente: number } | null) {
+  const total = productos?.total || 1
   const filas = [
-    { etiqueta: 'En stock', n: productos.filter((p) => p.disponibilidad === 'stock').length },
-    { etiqueta: 'Bajo pedido', n: productos.filter((p) => p.disponibilidad === 'bajo pedido').length },
-    { etiqueta: 'Próximamente', n: productos.filter((p) => p.disponibilidad === 'proximamente').length },
+    { etiqueta: 'En stock', n: productos?.stock ?? 0 },
+    { etiqueta: 'Bajo pedido', n: productos?.['bajo pedido'] ?? 0 },
+    { etiqueta: 'Próximamente', n: productos?.proximamente ?? 0 },
   ]
   return filas.map((f) => ({ ...f, pct: Math.round((f.n / total) * 100) }))
 }

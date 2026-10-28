@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import heroInicio from '../assets/img/hero-inicio.png'
 import logoYade from '../assets/img/logo-yade.png'
 import { api, type Negocio } from './api'
+import { useRuta } from './router'
 
 // Lo que se muestra mientras carga o si el administrador aún no lo ha llenado
 export const NOMBRE_POR_DEFECTO = 'Yade Bakery'
@@ -19,12 +20,15 @@ const Contexto = createContext<ContextoNegocio | null>(null)
 
 /* Carga /negocio una sola vez para todo el sitio (encabezado, pie, Inicio, Acerca de y el panel). */
 export function ProveedorNegocio({ children }: { children: ReactNode }) {
+  const { path } = useRuta()
+  const debeCargar = !path.startsWith('/admin') || path === '/admin/configuracion'
   const [negocio, setNegocio] = useState<Negocio | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
+    if (!debeCargar) return
     let vigente = true
     setCargando(true)
     api<Negocio>('/negocio')
@@ -32,7 +36,7 @@ export function ProveedorNegocio({ children }: { children: ReactNode }) {
       .catch((e: Error) => { if (vigente) setError(e.message) })
       .finally(() => { if (vigente) setCargando(false) })
     return () => { vigente = false }
-  }, [version])
+  }, [debeCargar, version])
 
   const recargar = useCallback(() => setVersion((v) => v + 1), [])
 

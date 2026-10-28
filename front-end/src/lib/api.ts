@@ -1,8 +1,12 @@
 /* Cliente de la API: todo pasa por el gateway (http://localhost:8000/api). */
 
-export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+// En desarrollo el gateway corre en localhost; en producción, por defecto, comparte origen.
+// Se puede sobrescribir explícitamente con VITE_API_URL en cualquier entorno.
+export const API_URL: string = import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? 'http://localhost:8000/api' : '/api')
 
 const CLAVE_TOKEN = 'yade_token'
+const GET_EN_CURSO = new Map<string, Promise<Response>>()
 
 export function leerToken(): string | null {
   try {
@@ -36,7 +40,7 @@ type Opciones = {
 }
 
 export async function api<T>(ruta: string, { method = 'GET', body, params }: Opciones = {}): Promise<T> {
-  const url = new URL(API_URL + ruta)
+  const url = new URL(API_URL + ruta, window.location.origin)
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v))
   }
@@ -49,8 +53,42 @@ export async function api<T>(ruta: string, { method = 'GET', body, params }: Opc
 
   let r: Response
   try {
-    r = await fetch(url, { method, headers, body: esArchivo ? body : body === undefined ? undefined : JSON.stringify(body) })
-  } catch {
+    const opcionesFetch: RequestInit = {
+      method,
+      headers,
+      body: esArchivo ? body : body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    }
+    if (method === 'GET') {
+      // React StrictMode monta efectos dos veces en desarrollo; compartir el GET evita
+      // duplicar llamadas lentas al gateway y también combina cargas simultáneas idénticas.
+      const clave = `${url.href}|${token ?? ''}`
+      let pendiente = GET_EN_CURSO.get(clave)
+      if (!pendiente) {
+        pendiente = (async () => {
+          for (let intento = 0; ; intento++) {
+            const respuesta = await fetch(url, opcionesFetch)
+            if (intento < 2 && (respuesta.status === 502 || respuesta.status === 503)) {
+              await new Promise((resolve) => setTimeout(resolve, 250 * (intento + 1)))
+              continue
+            }
+            return respuesta
+          }
+        })()
+        GET_EN_CURSO.set(clave, pendiente)
+        void pendiente.then(
+          () => { if (GET_EN_CURSO.get(clave) === pendiente) GET_EN_CURSO.delete(clave) },
+          () => { if (GET_EN_CURSO.get(clave) === pendiente) GET_EN_CURSO.delete(clave) },
+        )
+      }
+      r = await pendiente.then((respuesta) => respuesta.clone())
+    } else {
+      r = await fetch(url, opcionesFetch)
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'TimeoutError') {
+      throw new ErrorApi(0, 'El servidor tardó demasiado en responder. Intenta de nuevo.')
+    }
     throw new ErrorApi(0, 'No se pudo conectar con el servidor. ¿Está corriendo el backend?')
   }
 
@@ -183,11 +221,15 @@ export type Actividad = { id: number; fecha: string; persona: string; nombre: st
 
 export type Estadisticas = {
   productos_en_catalogo: number | null
+  inventario: { total: number; stock: number; 'bajo pedido': number; proximamente: number } | null
   citas_proximas: number | null
   citas_terminadas: number | null
+  citas_siguientes: CitaPanel[]
   actividad_reciente: Actividad[]
   errores: Record<string, string>
 }
+
+export type CitaPanel = Pick<Cita, 'id' | 'fecha' | 'nombre_cliente' | 'telefono' | 'correo' | 'detalles'>
 
 /* ---------- Formatos ---------- */
 
