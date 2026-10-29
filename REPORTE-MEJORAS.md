@@ -169,6 +169,78 @@ Medido contra tu Neon (`us-east-2`) desde esta máquina; cada viaje cuesta ~100-
 
 ---
 
+## 5b. Segunda ronda (2026-10-29): errores 500 y Paquetes
+
+**Errores 500 encontrados y corregidos**
+| Error | Causa | Corrección |
+|---|---|---|
+| 500 cuando Neon corta una conexión a mitad de consulta | El error del driver a veces llegaba envuelto en otra excepción y no lo atrapaba ningún manejador | `es_desconexion()` revisa toda la cadena de excepciones; manejador de último recurso: corte → 503, error de programación → 500 en JSON |
+| Lecturas que fallaban por un corte | No se reintentaban en el servidor | `leer()` repite una vez con conexión nueva (catálogo, negocio, estadísticas); el **gateway** repite una vez cualquier GET que reciba 503 o un error de transporte. Las escrituras solo se repiten si nunca llegaron al servicio |
+| El servicio no arrancaba si la conexión se cortaba al aplicar las actualizaciones | Un `BrokenPipeError` crudo no se atrapaba | Se atrapa, se registra en el log y el servicio arranca |
+| `PATCH /productos` devolvía `"precio": "12"` en vez de `"12.00"` | Efecto de quitar `db.refresh()` | El precio se normaliza a 2 decimales al recibirlo |
+| Conexiones keep-alive reutilizadas justo cuando uvicorn las cierra (5 s) | Clientes HTTP compartidos y gateway | `keepalive_expiry=2` en todos los clientes |
+
+**Verificación**: 1494 peticiones en paralelo a todas las rutas (válidas, inválidas y extremas) → 0 errores 5xx;
+simulación de cortes de conexión a mitad de consulta → 0 errores 500; prueba directa del manejador con los errores
+crudos de pg8000 → 503; recorrido completo de escrituras por HTTP (panel + cliente) → todo correcto, y se borró
+lo creado (incluidas 32 entradas de prueba del historial); 22 pantallas en navegador real → sin errores de consola.
+
+**Paquetes**: se quitó del menú del panel, de las rutas (`/admin/paquetes` lleva al Inicio del panel) y se borró
+`pages/admin/Proximamente.tsx`. También se corrigió el título "Configuración".
+
+## 5c. Tercera ronda (2026-10-29): revisión completa
+
+| Error | Corrección |
+|---|---|
+| Categorías y etiquetas cambiaban de orden según la pantalla por la que se entrara (misma clave de caché, cargadores distintos) | `src/lib/datos.ts`: un solo cargador por clave, usado por Catálogo, Agendar, panel y cuenta |
+| Agendar podía guardar una hora de otro día si el día se ajustaba solo al llegar los horarios | La hora elegida solo cuenta si es del día que se ve |
+| El hero de Inicio mostraba el texto y la ilustración del diseño y a los segundos cambiaba a los del negocio | `/negocio` se guarda en el navegador; en la primera visita el hero espera vacío (~0.1 s) en lugar de mostrar los del diseño |
+| `<h3>` y `<p>` dentro del botón de la tarjeta de postre (HTML inválido) | Cambiados por `<span>` con el mismo estilo |
+
+Verificado: typecheck, lint y build; medición del hero cada 100 ms en 3 visitas (nunca aparece el texto del diseño);
+22 pantallas en navegador real sin errores.
+
+## 5d. `dev.sh` fallaba con "Address already in use"
+
+**Causa**: `dev.mjs` lanza cada servicio en su propio grupo de procesos y solo los detenía con Ctrl+C (SIGINT/SIGTERM).
+Al cerrar la terminal (SIGHUP) los servicios quedaban vivos sin dueño ocupando los puertos 8000-8005 (y Vite se caía),
+así que el siguiente `dev.sh` no podía arrancar.
+
+**Corrección** (`dev.mjs`):
+- También se detiene todo con SIGHUP (probado: 7 puertos escuchando → 0 al cerrar, sin procesos huérfanos).
+- Antes de arrancar revisa los puertos 8000-8005 y 5173. Si los tiene una ejecución vieja de este proyecto, la
+  detiene sola (Linux); si es otro programa, dice cuál es y cómo cerrarlo, y no arranca. En Windows solo avisa.
+
+**Aviso de seguridad**: `JWT_SECRET` en `back-end/.env` mide 20 bytes (PyJWT avisa: mínimo 32 para HS256).
+Generar otro con `python -c "import secrets; print(secrets.token_urlsafe(48))"` (cierra las sesiones abiertas).
+
+## 5e. Diseño: primer bloque visual
+
+| Qué | Dónde |
+|---|---|
+| Encabezado fijo: transparente sobre el hero y vidrio esmerilado tinto al bajar (el logo se achica un poco) | `components/Encabezado.tsx` (se dibuja en `<body>` con un portal para quedar encima de todo) |
+| Menú hamburguesa en celular con panel lateral y fondo difuminado (se cierra con Esc, tocando afuera o al navegar). Antes el encabezado se encimaba sobre el título del hero | `components/Encabezado.tsx` |
+| Transición entre páginas (la vieja se desvanece, la nueva entra subiendo); los filtros cambian sin animación | `lib/router.ts` (`navegar`), `index.css` |
+| Las páginas públicas se precargan cuando el navegador está libre, para que la transición no pase por "Cargando…" | `App.tsx` |
+| Modales que entran con animación y difuminan el fondo; avisos que suben al aparecer | `components/Modal.tsx`, `components/Avisos.tsx`, `index.css` |
+| Tarjetas de postre, secciones de Acerca de y títulos aparecen al entrar en pantalla (CSS puro: si el navegador no lo soporta, se ven normal) | clase `.aparecer` en `index.css` |
+| Página 404 ("Página no encontrada", también en el título de la pestaña) | `pages/NoEncontrada.tsx` |
+| Todo el movimiento se apaga con "reducir movimiento" del sistema | `index.css` |
+
+Verificado: typecheck, lint y build; capturas antes/después en escritorio y celular; 22 pantallas sin errores;
+navegación con clics: 3/3 transiciones, la página queda arriba y los filtros no animan.
+
+## 5f. Hero del Menú editable
+
+El encabezado de la página Menú (título e imagen) estaba fijo en el código. Ahora se edita en
+**Panel → Configuración → Hero del menú**, igual que el de Inicio:
+- Texto: cada renglón es una línea; el primero se ve un poco más chico. Vacío = "Postres que hacen / la vida más dulce".
+- Imagen: con foto propia se muestra a todo lo ancho con degradado; sin imagen se usa la ilustración del diseño.
+- Backend: columnas `catalogo_url` y `texto_catalogo` en `negocio.negocio` (se agregan solas al arrancar; también en `schema.sql`).
+
+Verificado: guardado desde el formulario → API → se ve en el Menú (escritorio y celular); la configuración se
+dejó como estaba y se borraron del historial los registros de la prueba.
+
 ## 6. Pendientes
 
 ### Para que lo revises tú
@@ -190,5 +262,4 @@ Medido contra tu Neon (`us-east-2`) desde esta máquina; cada viaje cuesta ~100-
 | Media | Caché y límites de intentos viven en memoria | Con varios procesos/servidores conviene Redis |
 | Baja | Borrado lógico (`eliminado_en`) en productos y citas | Hoy borrar es irreversible |
 | Baja | Driver `psycopg` 3 cuando haya ruedas para Python 3.15 | Más rápido que pg8000 y sin sus rarezas |
-| Baja | Pantalla de Paquetes | Sigue como "Pronto" |
 | Baja | Pre-render de Inicio/Catálogo para SEO | Es una SPA: Google ve poco contenido |

@@ -14,7 +14,8 @@ export default function Modal({ titulo, onCerrar, children }: { titulo: string; 
   return (
     <dialog
       ref={ref}
-      className="m-auto max-h-[calc(100dvh-32px)] w-[min(540px,calc(100%-32px))] overflow-y-auto rounded-[18px] bg-crema p-0 shadow-modal backdrop:bg-[rgba(53,21,27,0.55)]"
+      // .modal (index.css): entra con animación y difumina el fondo
+      className="modal m-auto max-h-[calc(100dvh-32px)] w-[min(540px,calc(100%-32px))] overflow-y-auto rounded-[18px] bg-crema p-0 shadow-modal"
       onClose={onCerrar}
       onInput={() => { modificado.current = true }}
       onClick={(e) => { if (e.target === ref.current && !modificado.current) ref.current?.close() }}

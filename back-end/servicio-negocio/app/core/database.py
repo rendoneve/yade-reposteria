@@ -83,6 +83,9 @@ ACTUALIZACIONES = [
     "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS nombre VARCHAR(100)",
     "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
     "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS hero_url VARCHAR(500)",
+    # Hero de la página Menú (catálogo), editable desde Configuración
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS catalogo_url VARCHAR(500)",
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS texto_catalogo TEXT",
 ]
 
 

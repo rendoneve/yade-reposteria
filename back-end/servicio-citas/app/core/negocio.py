@@ -16,7 +16,12 @@ from app.core.config import settings
 log = logging.getLogger(__name__)
 
 TTL_SEGUNDOS = 60.0
-_http = httpx.Client(base_url=settings.negocio_service_url, timeout=3.0)
+_http = httpx.Client(
+    base_url=settings.negocio_service_url,
+    timeout=3.0,
+    limits=httpx.Limits(keepalive_expiry=2.0),  # menor que el de uvicorn (5 s)
+    transport=httpx.HTTPTransport(retries=1),
+)
 _candado = threading.Lock()
 _cache: tuple[float, dict[int, tuple[Hora, Hora] | None]] | None = None
 

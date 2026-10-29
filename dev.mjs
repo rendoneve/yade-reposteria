@@ -11,6 +11,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
 import { homedir, networkInterfaces } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -195,7 +196,99 @@ for (const s of servicios) {
   ok(`${nombre}: dependencias instaladas`);
 }
 
-/* ---------- 3. Arranque ---------- */
+/* ---------- 3. Puertos ---------- */
+// Si dev.mjs murió sin detener a sus hijos (terminal cerrada, kill -9…), los servicios viejos siguen
+// ocupando los puertos y los nuevos fallan con "Address already in use". Aquí se detecta antes de arrancar.
+
+titulo("Revisando puertos…");
+
+const escucha = (host, puerto) =>
+  new Promise((listo) => {
+    const s = connect({ host, port: puerto });
+    s.setTimeout(1000, () => { s.destroy(); listo(false); });
+    s.once("connect", () => { s.destroy(); listo(true); });
+    s.once("error", () => listo(false));
+  });
+// Vite escucha en [::1] (IPv6) y los servicios en 127.0.0.1: hay que probar las dos
+const ocupado = async (puerto) => (await escucha("127.0.0.1", puerto)) || (await escucha("::1", puerto));
+
+function pidsEnPuerto(puerto) {
+  if (esWindows) {
+    const filas = correr("netstat -ano -p tcp").salida.split(/\r?\n/);
+    return [...new Set(filas.filter((l) => /LISTENING/.test(l) && l.includes(`:${puerto} `)).map((l) => Number(l.trim().split(/\s+/).pop())).filter(Boolean))];
+  }
+  const ss = correr(`ss -ltnpH "sport = :${puerto}"`).salida;
+  return [...new Set([...ss.matchAll(/pid=(\d+)/g)].map((m) => Number(m[1])))];
+}
+
+function comandoDe(pid) {
+  if (esWindows) {
+    return correr(`powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine"`).salida;
+  }
+  try {
+    return readFileSync(`/proc/${pid}/cmdline`, "utf8").replaceAll("\0", " ").trim();
+  } catch {
+    return "";
+  }
+}
+
+// ¿El proceso todavía pertenece a otro dev.mjs vivo? Entonces es una sesión abierta, no un huérfano.
+function sesionActiva(pid) {
+  for (let actual = pid, pasos = 0; actual > 1 && pasos < 40; pasos++) {
+    if (actual !== process.pid && /\bdev\.mjs\b/.test(comandoDe(actual))) return actual;
+    try {
+      const stat = readFileSync(`/proc/${actual}/stat`, "utf8");
+      actual = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]); // 4.º campo: el padre
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+const puertos = [...servicios.map((s) => ({ nombre: s.nombre, puerto: s.puerto })), { nombre: "front-end", puerto: puertoFront }];
+const bloqueados = [];
+for (const { nombre, puerto } of puertos) {
+  if (!(await ocupado(puerto))) continue;
+  const pids = pidsEnPuerto(puerto);
+  const delProyecto = pids.length > 0 && pids.every((pid) => comandoDe(pid).includes(raiz));
+  const activa = !esWindows && delProyecto ? pids.map(sesionActiva).find(Boolean) : null;
+  if (activa) {
+    bloqueados.push({ nombre, puerto, pids, activa });
+  } else if (delProyecto && !esWindows) {
+    // Servicio viejo de este mismo proyecto: se detiene su grupo de procesos completo (recargador incluido)
+    for (const pid of pids) {
+      const grupo = Number(correr(`ps -o pgid= -p ${pid}`).salida);
+      try { process.kill(grupo > 1 ? -grupo : pid, "SIGTERM"); } catch {}
+    }
+    aviso(`${nombre}: el puerto ${puerto} lo tenía una ejecución anterior que quedó abierta; se detuvo`);
+  } else {
+    bloqueados.push({ nombre, puerto, pids, delProyecto });
+  }
+}
+// Espera a que los puertos liberados queden libres de verdad
+for (let i = 0; i < 20 && (await Promise.all(puertos.map((p) => ocupado(p.puerto)))).some((o, j) => o && !bloqueados.some((b) => b.puerto === puertos[j].puerto)); i++) {
+  await new Promise((r) => setTimeout(r, 250));
+}
+const siguenOcupados = [];
+for (const p of puertos) if (await ocupado(p.puerto)) siguenOcupados.push(bloqueados.find((b) => b.puerto === p.puerto) ?? { ...p, pids: pidsEnPuerto(p.puerto) });
+if (siguenOcupados.length) {
+  const sesion = siguenOcupados.find((b) => b.activa)?.activa;
+  if (sesion) {
+    console.log(color(31, `✘ Ya hay otro dev.sh corriendo (proceso ${sesion}): no se tocó nada.`));
+    console.log(`    Ciérralo con Ctrl+C en su terminal (o: kill ${sesion}) y vuelve a ejecutar este.`);
+    process.exit(1);
+  }
+  for (const b of siguenOcupados) {
+    console.log(color(31, `✘ ${b.nombre}: el puerto ${b.puerto} está ocupado`) + (b.pids.length ? ` por el proceso ${b.pids.join(", ")}` : ""));
+    for (const pid of b.pids) console.log(`    ${comandoDe(pid).slice(0, 160) || "(no se pudo leer el comando)"}`);
+    if (b.pids.length) console.log(`    Ciérralo con: ${esWindows ? b.pids.map((pid) => `taskkill /PID ${pid} /T /F`).join(" & ") : `kill ${b.pids.join(" ")}`}`);
+  }
+  process.exit(1);
+}
+ok("Puertos libres");
+
+/* ---------- 4. Arranque ---------- */
 
 titulo("Iniciando servicios…\n");
 
@@ -256,7 +349,7 @@ function iniciarProceso(p, i) {
   });
 }
 
-/* ---------- 4. Aviso de "todo listo" ---------- */
+/* ---------- 5. Aviso de "todo listo" ---------- */
 
 const responde = async (url, exigirTodo = false) => {
   try {
@@ -359,4 +452,7 @@ async function arrancarPorEtapas() {
 
 process.on("SIGINT", detener);
 process.on("SIGTERM", detener);
+// Al cerrar la terminal llega SIGHUP: sin esto los servicios (que van en su propio grupo de procesos)
+// quedaban vivos y ocupando los puertos para la siguiente vez
+process.on("SIGHUP", detener);
 arrancarPorEtapas();

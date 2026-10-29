@@ -10,7 +10,6 @@ const MENU = [
   { to: '/admin/productos', texto: 'Productos' },
   { to: '/admin/citas', texto: 'Citas' },
   { to: '/admin/resenas', texto: 'Reseñas' },
-  { to: '/admin/paquetes', texto: 'Paquetes', pronto: true },
   { to: '/admin/configuracion', texto: 'Configuración' },
 ]
 
@@ -52,7 +51,6 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
               aria-current={activo(m.to) ? 'page' : undefined}
             >
               {m.texto}
-              {m.pronto && <span className="ml-2 rounded-md bg-beige/15 px-1.5 py-0.5 font-ui text-[11px] font-semibold tracking-wide text-beige/80 uppercase">Pronto</span>}
             </Link>
           ))}
         </nav>

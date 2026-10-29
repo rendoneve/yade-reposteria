@@ -3,22 +3,21 @@ import CuentaLayout from '../../components/CuentaLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
 import Confirmar from '../../components/Confirmar'
 import TarjetaCita from '../../components/TarjetaCita'
-import { api, formatoFecha, type Cita, type Resena } from '../../lib/api'
+import { api, formatoFecha, type Cita } from '../../lib/api'
 import { avisar } from '../../lib/avisos'
 import { botonPeligro, botonPildora, enlaceDorado } from '../../lib/estilos'
 import Link from '../../components/Link'
+import { cargarMisCitas, cargarMisResenas, MIS_CITAS, MIS_RESENAS } from '../../lib/datos'
 import { useDatos } from '../../lib/useDatos'
 
-const cargarMisCitas = () => api<Cita[]>('/citas/mias')
-const cargarMisResenas = () => api<Resena[]>('/resenas/mias')
 const subtitulo = 'mb-3.5 font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto'
 const pieTarjeta = 'mt-1 flex flex-wrap items-center justify-end gap-3'
 
 /* Panel del cliente: sus citas, con opción de cancelar las próximas y de reseñar las terminadas. */
 export default function MisCitas() {
   // Las dos pantallas de la cuenta usan las mismas claves: al pasar de una a otra no se vuelve a esperar
-  const citas = useDatos('citas:mias', cargarMisCitas)
-  const resenas = useDatos('resenas:mias', cargarMisResenas)
+  const citas = useDatos(MIS_CITAS, cargarMisCitas)
+  const resenas = useDatos(MIS_RESENAS, cargarMisResenas)
   const [cancelando, setCancelando] = useState<Cita | null>(null)
   const [ahora] = useState(Date.now)
 

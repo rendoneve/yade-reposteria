@@ -11,7 +11,7 @@ export default function Avisos() {
         <div
           key={a.id}
           role={a.tipo === 'error' ? 'alert' : 'status'}
-          className={`pointer-events-auto flex items-start gap-3 rounded-xl px-4 py-3 font-ui text-sm leading-[1.4] font-semibold text-white shadow-modal ${a.tipo === 'error' ? 'bg-error' : 'bg-exito'}`}
+          className={`aviso-entrar pointer-events-auto flex items-start gap-3 rounded-xl px-4 py-3 font-ui text-sm leading-[1.4] font-semibold text-white shadow-modal ${a.tipo === 'error' ? 'bg-error' : 'bg-exito'}`}
         >
           <p className="flex-1">{a.texto}</p>
           <button type="button" className="rounded-full p-0.5 hover:bg-white/20" aria-label="Cerrar aviso" onClick={() => quitarAviso(a.id)}>

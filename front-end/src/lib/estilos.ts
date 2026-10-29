@@ -44,7 +44,7 @@ export const celdaTd =
 
 // ---------- Hero del sitio público ----------
 export const hero =
-  'relative bg-tinto-oscuro text-beige max-[760px]:h-auto max-[760px]:px-6 max-[760px]:pt-[140px] max-[760px]:pb-8'
+  'relative bg-tinto-oscuro text-beige max-[760px]:h-auto max-[760px]:px-6 max-[760px]:pt-[104px] max-[760px]:pb-8'
 export const degradadoHero = 'bg-[linear-gradient(180deg,rgba(155,61,79,0)_-12.4%,#300e15_101.9%)]'
 export const heroTitulo =
   'absolute left-margen flex flex-col justify-center font-titulo leading-[48px] font-bold whitespace-nowrap text-beige [font-variant-caps:all-small-caps] max-[760px]:static max-[760px]:h-auto max-[760px]:whitespace-normal'

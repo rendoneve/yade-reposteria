@@ -251,6 +251,8 @@ export type Negocio = {
   hero_url: string | null
   banner_url: string | null
   texto_principal: string | null
+  catalogo_url: string | null // hero de la página Menú
+  texto_catalogo: string | null
   texto_acerca: string | null
   whatsapp: string | null
   ubicacion: string | null

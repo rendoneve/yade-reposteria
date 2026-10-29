@@ -27,6 +27,9 @@
   --shadow-tarjeta: 0 4px 10px var(--color-sombra-tarjeta);
   --shadow-modal: 0 20px 60px rgba(48, 14, 21, 0.35);
 
+  /* Movimiento: una sola curva para todo el sitio (ease-suave) */
+  --ease-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
+
   /* Margen lateral del sitio público: contenido centrado en un ancho máximo de 1440 px (left-margen, px-margen) */
   --spacing-margen: max(48px, calc((100% - 1440px) / 2 + 72px));
 }
@@ -53,3 +56,95 @@
     outline-offset: 2px;
   }
 }
+
+/* ---------- Movimiento ----------
+   Todo se apaga con "reducir movimiento" del sistema (al final del archivo). */
+
+/* Cambio de pantalla (View Transitions, ver navegar() en lib/router.ts): la página vieja se desvanece
+   y la nueva entra subiendo un poco. El encabezado fijo no se mueve. */
+::view-transition-old(root) {
+  animation: 180ms var(--ease-suave) both desvanecer;
+}
+::view-transition-new(root) {
+  animation: 320ms var(--ease-suave) both entrar-subiendo;
+}
+::view-transition-group(encabezado) {
+  animation: none;
+}
+
+@keyframes desvanecer {
+  to { opacity: 0; }
+}
+@keyframes entrar-subiendo {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+/* Aparece al entrar en pantalla mientras se hace scroll (sin JavaScript). Si el navegador no lo
+   soporta, el contenido simplemente se ve. */
+@supports (animation-timeline: view()) {
+  .aparecer {
+    animation: aparecer linear both;
+    animation-timeline: view();
+    animation-range: entry 5% entry 85%;
+  }
+}
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+}
+
+/* Modales (<dialog>): entran desde un poco más abajo y más chicos; el fondo se difumina */
+dialog.modal[open] {
+  opacity: 1;
+  transform: none;
+  transition: opacity 260ms var(--ease-suave), transform 260ms var(--ease-suave);
+}
+@starting-style {
+  dialog.modal[open] {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+dialog.modal::backdrop {
+  background: rgb(53 21 27 / 0.5);
+  backdrop-filter: blur(6px);
+  transition: background-color 260ms var(--ease-suave), backdrop-filter 260ms var(--ease-suave);
+}
+@starting-style {
+  dialog.modal[open]::backdrop {
+    background: rgb(53 21 27 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+/* Avisos (toasts) y panel del menú en celular */
+@keyframes aviso-entrar {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+@keyframes panel-entrar {
+  from { transform: translateX(100%); }
+}
+@keyframes fondo-entrar {
+  from { opacity: 0; }
+}
+.aviso-entrar { animation: aviso-entrar 280ms var(--ease-suave) both; }
+.panel-entrar { animation: panel-entrar 320ms var(--ease-suave) both; }
+.fondo-entrar { animation: fondo-entrar 240ms var(--ease-suave) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .aparecer { animation: none; }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+

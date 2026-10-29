@@ -19,6 +19,8 @@ class Negocio(Base):
     hero_url: Mapped[str | None] = mapped_column(String(500))  # imagen del hero de Inicio
     banner_url: Mapped[str | None] = mapped_column(String(500))  # banner de "Acerca de"
     texto_principal: Mapped[str | None] = mapped_column(Text)  # texto del hero de Inicio
+    catalogo_url: Mapped[str | None] = mapped_column(String(500))  # imagen del hero del Menú (catálogo)
+    texto_catalogo: Mapped[str | None] = mapped_column(Text)  # texto del hero del Menú
     texto_acerca: Mapped[str | None] = mapped_column(Text)  # historia del negocio
     whatsapp: Mapped[str | None] = mapped_column(String(20))
     ubicacion: Mapped[str | None] = mapped_column(String(255))

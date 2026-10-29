@@ -24,7 +24,9 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001 - solo es un calentamiento
         log.warning("La base de datos no respondió al arrancar: %s", exc)
     # Mantener el pool HTTP entre peticiones evita abrir conexiones nuevas al cargar el panel.
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as cliente:
+    async with httpx.AsyncClient(
+        timeout=settings.http_timeout, limits=httpx.Limits(keepalive_expiry=2.0)
+    ) as cliente:
         app.state.http = cliente
         yield
 

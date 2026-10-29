@@ -4,7 +4,7 @@ import Pie from '../components/Pie'
 import { degradadoHero, hero, heroLinea, heroLineaChica, heroTitulo, pagina, tarjetaCrema } from '../lib/estilos'
 import { useNegocio } from '../lib/negocio'
 
-const bloque = `${tarjetaCrema} flex flex-col gap-3 px-8 py-[30px]`
+const bloque = `${tarjetaCrema} aparecer flex flex-col gap-3 px-8 py-[30px]`
 const texto = 'font-texto text-lg leading-[1.55] whitespace-pre-line'
 
 const hora = (h: string | null) => (h ? h.slice(0, 5) : '')

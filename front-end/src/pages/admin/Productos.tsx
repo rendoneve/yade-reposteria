@@ -16,7 +16,6 @@ import {
   nombreEtiqueta,
   type Categoria,
   type Disponibilidad,
-  type Etiqueta,
   type Producto,
 } from "../../lib/api";
 import {
@@ -34,15 +33,16 @@ import {
 } from "../../lib/estilos";
 import { avisar } from "../../lib/avisos";
 import { precargar } from "../../lib/cache";
+import {
+  CATEGORIAS,
+  cargarCategorias,
+  cargarEtiquetas,
+  cargarProductos,
+  claveProductos,
+  ETIQUETAS,
+} from "../../lib/datos";
 import { navegar, useRuta } from "../../lib/router";
 import { useDatos } from "../../lib/useDatos";
-
-const cargarCategorias = () =>
-  api<Categoria[]>("/categorias").then((l) => [...l].sort((a, b) => a.id - b.id));
-const cargarEtiquetas = () => api<Etiqueta[]>("/etiquetas");
-const claveProductos = (id: number) => `productos:categoria:${id}`;
-const cargarProductos = (id: number) => () =>
-  api<Producto[]>("/productos", { params: { categoria_id: id, limit: 500 } });
 
 const gridTarjetas =
   "mt-5 grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-x-4 gap-y-10";
@@ -58,8 +58,8 @@ export default function Productos() {
 /* ---------- Categorías ---------- */
 
 function Categorias() {
-  // En el orden en que se crearon (misma clave que el catálogo público: comparten caché)
-  const categorias = useDatos("categorias", cargarCategorias);
+  // Misma clave y cargador que el catálogo público (lib/datos.ts): comparten caché
+  const categorias = useDatos(CATEGORIAS, cargarCategorias);
   const [editando, setEditando] = useState<Categoria | "nueva" | null>(null);
 
   return (
@@ -229,7 +229,7 @@ function FormCategoria({
 
 function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
   // La categoría sale de la lista que ya está en caché (no hace falta otra petición)
-  const categorias = useDatos("categorias", cargarCategorias);
+  const categorias = useDatos(CATEGORIAS, cargarCategorias);
   const categoria = {
     datos: categorias.datos?.find((c) => c.id === categoriaId) ?? null,
     cargando: categorias.cargando,
@@ -303,8 +303,8 @@ function FormProducto({
   onCerrar: () => void;
   onGuardado: () => void;
 }) {
-  const categorias = useDatos("categorias", cargarCategorias);
-  const etiquetas = useDatos("etiquetas", cargarEtiquetas);
+  const categorias = useDatos(CATEGORIAS, cargarCategorias);
+  const etiquetas = useDatos(ETIQUETAS, cargarEtiquetas);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [imagen, setImagen] = useState<CambioImagen>(undefined);

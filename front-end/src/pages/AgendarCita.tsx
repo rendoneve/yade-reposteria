@@ -9,9 +9,7 @@ import {
   ETIQUETA_SERVICIO,
   formatoFecha,
   type AgendaDia,
-  type Categoria,
   type Horario,
-  type ProductoOpcion,
 } from '../lib/api'
 import {
   botonOscuro,
@@ -27,6 +25,7 @@ import {
   pagina,
   tarjetaCrema,
 } from '../lib/estilos'
+import { CATEGORIAS, cargarCategorias, cargarOpcionesProductos, OPCIONES_PRODUCTOS } from '../lib/datos'
 import { useNegocio } from '../lib/negocio'
 import { useRuta } from '../lib/router'
 import { useSesion } from '../lib/sesion'
@@ -63,8 +62,6 @@ const tarjetaForm = `${tarjetaCrema} flex flex-col gap-4 px-[34px] py-8 max-[560
 const chipHora =
   'h-9 rounded-lg border border-rosa-vino bg-white font-texto text-[15px] text-tinto-texto transition-colors enabled:hover:border-tinto aria-pressed:border-tinto aria-pressed:bg-tinto aria-pressed:text-white disabled:cursor-not-allowed disabled:bg-transparent disabled:text-texto-secundario/60 disabled:line-through'
 
-const cargarCategorias = () => api<Categoria[]>('/categorias')
-const cargarOpciones = () => api<ProductoOpcion[]>('/productos/opciones')
 
 /* Formulario de cita (no está en Figma; usa los mismos estilos del sitio). */
 export default function AgendarCita() {
@@ -72,14 +69,17 @@ export default function AgendarCita() {
   const { usuario } = useSesion()
   const { negocio } = useNegocio()
   const idProducto = Number(query.get('producto')) || null
-  const categorias = useDatos('categorias', cargarCategorias)
-  const catalogo = useDatos('productos:opciones', cargarOpciones)
+  const categorias = useDatos(CATEGORIAS, cargarCategorias)
+  const catalogo = useDatos(OPCIONES_PRODUCTOS, cargarOpcionesProductos)
   // Productos que se piden en la cita (quedan ligados a ella y, después, a la reseña)
   const [elegidos, setElegidos] = useState<number[]>(() => (idProducto ? [idProducto] : []))
 
   const [fechaElegida, setFecha] = useState<string | null>(null)
   const fecha = fechaElegida ?? primerDiaAbierto(negocio?.horarios)
   const [inicio, setInicio] = useState<string | null>(null) // franja elegida (ISO del servidor)
+  // Solo vale si es del día que se ve: el día puede cambiar solo (al llegar los horarios del negocio)
+  // y no se debe agendar una hora de otro día que quedó elegida
+  const horaElegida = inicio?.startsWith(`${fecha}T`) ? inicio : null
   const agenda = useDatos(`agenda:${fecha}`, () => api<AgendaDia>('/citas/disponibilidad', { params: { fecha } }))
 
   const [enviando, setEnviando] = useState(false)
@@ -94,7 +94,7 @@ export default function AgendarCita() {
   const enviar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
-    const fechaIso = sinHorarios ? aIsoConZona(fecha, String(f.get('hora'))) : inicio
+    const fechaIso = sinHorarios ? aIsoConZona(fecha, String(f.get('hora'))) : horaElegida
     if (!fechaIso) {
       setError('Elige una hora disponible.')
       return
@@ -209,7 +209,7 @@ export default function AgendarCita() {
                           type="button"
                           className={chipHora}
                           disabled={!f.disponible}
-                          aria-pressed={inicio === f.inicio}
+                          aria-pressed={horaElegida === f.inicio}
                           aria-label={`${horaDeIso(f.inicio)}${f.disponible ? '' : ' (ocupada)'}`}
                           onClick={() => setInicio(f.inicio)}
                         >

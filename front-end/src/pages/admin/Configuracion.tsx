@@ -4,7 +4,7 @@ import { Cargando, MensajeError } from '../../components/Estado'
 import SubirImagen from '../../components/SubirImagen'
 import { api, resolverImagen, type CambioImagen, type Horario, type Negocio } from '../../lib/api'
 import { botonOscuro, campoAdmin, controlAdmin, errorAdmin, tarjetaCrema, tituloTarjetaAdmin } from '../../lib/estilos'
-import { HERO_TEXTO_POR_DEFECTO, NOMBRE_POR_DEFECTO, useNegocio } from '../../lib/negocio'
+import { CATALOGO_TEXTO_POR_DEFECTO, HERO_TEXTO_POR_DEFECTO, NOMBRE_POR_DEFECTO, useNegocio } from '../../lib/negocio'
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0] // lunes primero
@@ -32,7 +32,7 @@ export default function Configuracion() {
   const { negocio, error, cargando, recargar } = useNegocio()
 
   return (
-    <AdminLayout titulo="Configuracion">
+    <AdminLayout titulo="Configuración">
       {cargando && !negocio && <Cargando />}
       {error && !negocio && <MensajeError texto={error} reintentar={recargar} />}
       {negocio && <FormNegocio negocio={negocio} />}
@@ -45,6 +45,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
   const [logo, setLogo] = useState<CambioImagen>()
   const [hero, setHero] = useState<CambioImagen>()
   const [banner, setBanner] = useState<CambioImagen>()
+  const [catalogo, setCatalogo] = useState<CambioImagen>()
   const [horarios, setHorarios] = useState(() => filasDe(negocio.horarios))
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,10 +73,11 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
       return
     }
     try {
-      const [logo_url, hero_url, banner_url] = await Promise.all([
+      const [logo_url, hero_url, banner_url, catalogo_url] = await Promise.all([
         resolverImagen(logo, negocio.logo_url),
         resolverImagen(hero, negocio.hero_url),
         resolverImagen(banner, negocio.banner_url),
+        resolverImagen(catalogo, negocio.catalogo_url),
       ])
       const nuevosHorarios = await api<Horario[]>('/horarios', {
         method: 'PUT',
@@ -88,7 +90,9 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           logo_url,
           hero_url,
           banner_url,
+          catalogo_url,
           texto_principal: textoONull(f.get('texto_principal')),
+          texto_catalogo: textoONull(f.get('texto_catalogo')),
           texto_acerca: textoONull(f.get('texto_acerca')),
           whatsapp: textoONull(f.get('whatsapp'))?.replace(/[\s()-]/g, '') ?? null,
           ubicacion: textoONull(f.get('ubicacion')),
@@ -100,6 +104,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
       setLogo(undefined)
       setHero(undefined)
       setBanner(undefined)
+      setCatalogo(undefined)
       setGuardado(true)
     } catch (err) {
       setError((err as Error).message)
@@ -133,6 +138,19 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
             Imagen
             <SubirImagen imagenInicial={negocio.hero_url} onChange={setHero} className="h-36" fondoOscuro />
             <span className={ayuda}>De preferencia PNG con fondo transparente. Sin imagen se usa la del diseño.</span>
+          </div>
+        </Seccion>
+
+        <Seccion titulo="Hero del menú">
+          <label className={campoAdmin}>
+            Texto
+            <textarea className={controlAdmin} name="texto_catalogo" rows={2} defaultValue={negocio.texto_catalogo ?? ''} placeholder={CATALOGO_TEXTO_POR_DEFECTO} />
+            <span className={ayuda}>Título de la página Menú. Cada renglón es una línea; el primero se ve un poco más chico.</span>
+          </label>
+          <div className={campoAdmin}>
+            Imagen
+            <SubirImagen imagenInicial={negocio.catalogo_url} onChange={setCatalogo} className="h-36" fondoOscuro />
+            <span className={ayuda}>Con imagen propia se muestra a todo lo ancho, con un degradado para que se lea el texto. Sin imagen se usa la del diseño.</span>
           </div>
         </Seccion>
 

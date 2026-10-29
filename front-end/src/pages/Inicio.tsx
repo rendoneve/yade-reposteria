@@ -13,7 +13,7 @@ const cargarDestacados = () => api<Producto[]>('/productos/destacados', { params
 
 /* PAGINA PRINCIPAL (Figma 1:2) */
 export default function Inicio() {
-  const { heroPropio, heroImagen, heroLineas } = useNegocio()
+  const { heroPropio, heroImagen, heroLineas, cargando: cargandoNegocio } = useNegocio()
   // "Especiales del mes": los más vendidos o, si no hay, los más recientes (lo resuelve el backend)
   const { datos, error, cargando, recargar } = useDatos('productos:destacados', cargarDestacados)
   const [viendo, setViendo] = useState<Producto | null>(null)
@@ -21,7 +21,9 @@ export default function Inicio() {
   return (
     <div className={pagina}>
       <section className={`${hero} ${degradadoHero} z-1 h-[620px] max-[760px]:overflow-hidden`}>
-        {heroPropio ? (
+        {/* Primera visita: mientras llega /negocio no se muestra la imagen ni el texto del diseño,
+            para que no cambien a los pocos segundos por los del negocio */}
+        {cargandoNegocio ? null : heroPropio ? (
           <>
             {/* Foto que subió el negocio: a todo lo ancho, con degradado para que se lea el texto */}
             <img
@@ -47,9 +49,9 @@ export default function Inicio() {
         {/* Encabezado y texto por encima de la imagen y el degradado */}
         <div className="relative z-20">
           <Encabezado />
-          <h1 className={`${heroTitulo} top-[180px] h-[230px]`}>
+          <h1 className={`${heroTitulo} top-[180px] h-[230px]`} aria-busy={cargandoNegocio}>
             {/* El primer renglón va un poco más chico, como en el diseño */}
-            {heroLineas.map((l, i) => (
+            {!cargandoNegocio && heroLineas.map((l, i) => (
               <span key={i} className={i === 0 && heroLineas.length > 1 ? heroLineaChica : heroLinea}>
                 {l}
               </span>
@@ -59,7 +61,7 @@ export default function Inicio() {
       </section>
 
       <main className="flex-1 px-6 pt-11 pb-[100px]">
-        <h2 className="mb-10 text-center font-ui text-[52px] leading-[1.2] font-bold text-dorado max-[760px]:text-4xl">Especiales del mes</h2>
+        <h2 className="aparecer mb-10 text-center font-ui text-[52px] leading-[1.2] font-bold text-dorado max-[760px]:text-4xl">Especiales del mes</h2>
         {error && <MensajeError texto={error} reintentar={recargar} />}
         {datos && datos.length === 0 && <Vacio texto="Pronto tendremos postres especiales." />}
         <div className="flex flex-wrap justify-center gap-12 max-[1280px]:gap-8">

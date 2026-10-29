@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import Avisos from './components/Avisos'
 import { Cargando } from './components/Estado'
 import { ProveedorSesion } from './lib/auth'
@@ -10,6 +10,7 @@ const AcercaDe = lazy(() => import('./pages/AcercaDe'))
 const AgendarCita = lazy(() => import('./pages/AgendarCita'))
 const Catalogo = lazy(() => import('./pages/Catalogo'))
 const Inicio = lazy(() => import('./pages/Inicio'))
+const NoEncontrada = lazy(() => import('./pages/NoEncontrada'))
 const Login = lazy(() => import('./pages/Login'))
 const Entrar = lazy(() => import('./pages/cuenta/Entrar'))
 const MisCitas = lazy(() => import('./pages/cuenta/MisCitas'))
@@ -20,7 +21,6 @@ const Citas = lazy(() => import('./pages/admin/Citas'))
 const Configuracion = lazy(() => import('./pages/admin/Configuracion'))
 const Panel = lazy(() => import('./pages/admin/Panel'))
 const Productos = lazy(() => import('./pages/admin/Productos'))
-const Proximamente = lazy(() => import('./pages/admin/Proximamente'))
 const ResenasAdmin = lazy(() => import('./pages/admin/Resenas'))
 
 // Título de la pestaña por pantalla (null = solo el nombre del negocio)
@@ -40,7 +40,29 @@ const TITULOS: [prefijo: string, titulo: string | null][] = [
   ['/registro', 'Crear cuenta'],
 ]
 
+// Rutas del sitio público (lo demás, fuera de /admin y /cuenta, es 404)
+const PUBLICAS = ['/', '/catalogo', '/acerca-de', '/agendar', '/entrar', '/registro']
+
+/* Cuando el navegador está libre, se bajan las páginas públicas: así la transición entre pantallas
+   no pasa por "Cargando…" la primera vez que se visita cada una. */
+function precargarPaginas() {
+  void import('./pages/Inicio')
+  void import('./pages/Catalogo')
+  void import('./pages/AcercaDe')
+  void import('./pages/AgendarCita')
+  void import('./pages/cuenta/Entrar')
+}
+
 export default function App() {
+  useEffect(() => {
+    if ('requestIdleCallback' in window) {
+      const id = requestIdleCallback(precargarPaginas, { timeout: 4000 })
+      return () => cancelIdleCallback(id)
+    }
+    const id = setTimeout(precargarPaginas, 2000)
+    return () => clearTimeout(id)
+  }, [])
+
   return (
     <ProveedorSesion>
       <Suspense fallback={<div className={fondoLogin}><Cargando /></div>}>
@@ -54,7 +76,8 @@ export default function App() {
 function Rutas() {
   const { path } = useRuta()
   const { nombre } = useNegocio()
-  useTitulo(TITULOS.find(([p]) => path.startsWith(p))?.[1] ?? null, nombre)
+  const existe = PUBLICAS.includes(path) || path.startsWith('/admin') || path.startsWith('/cuenta')
+  useTitulo(existe ? (TITULOS.find(([p]) => path.startsWith(p))?.[1] ?? null) : 'Página no encontrada', nombre)
   if (path.startsWith('/admin')) return <RutasAdmin path={path} />
   if (path.startsWith('/cuenta')) return <RutasCuenta path={path} />
   switch (path) {
@@ -64,7 +87,7 @@ function Rutas() {
     case '/agendar': return <AgendarCita />
     case '/entrar': return <Entrar />
     case '/registro': return <Registro />
-    default: return <Inicio />
+    default: return <NoEncontrada />
   }
 }
 
@@ -87,7 +110,6 @@ function RutasAdmin({ path }: { path: string }) {
   if (path.startsWith('/admin/productos')) return <Productos />
   switch (path) {
     case '/admin/citas': return <Citas />
-    case '/admin/paquetes': return <Proximamente titulo="Paquetes" />
     case '/admin/resenas': return <ResenasAdmin />
     case '/admin/configuracion': return <Configuracion />
     default: return <Panel />

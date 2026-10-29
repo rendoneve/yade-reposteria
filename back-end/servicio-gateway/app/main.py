@@ -54,6 +54,8 @@ SALTO = {
     "trailers", "transfer-encoding", "upgrade", "host", "content-length",
 }
 NO_DEVOLVER = SALTO | {"content-encoding"}
+# Se pueden repetir sin riesgo: no cambian nada en el servidor
+IDEMPOTENTES = {"GET", "HEAD"}
 
 # (método, recurso, resto) -> (máximo de peticiones, ventana en segundos)
 LIMITES = {
@@ -97,7 +99,10 @@ def _revisar_limite(request: Request, recurso: str, resto: str) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.http = httpx.AsyncClient(timeout=settings.timeout, follow_redirects=False)
+    # keepalive_expiry menor que el de uvicorn (5 s): no se reutiliza una conexión que el servicio ya cerró
+    app.state.http = httpx.AsyncClient(
+        timeout=settings.timeout, follow_redirects=False, limits=httpx.Limits(keepalive_expiry=2.0)
+    )
     yield
     await app.state.http.aclose()
 
@@ -170,22 +175,30 @@ async def _reenviar(request: Request, recurso: str, resto: str) -> Response:
     if request.client:
         cabeceras["x-forwarded-for"] = request.client.host
 
-    try:
-        r = await request.app.state.http.request(
-            request.method,
-            destino,
-            params=request.query_params,
-            headers=cabeceras,
-            content=await request.body(),
-        )
-    except httpx.TimeoutException:
-        log.warning("Timeout al reenviar %s %s a servicio-%s", request.method, request.url.path, servicio)
-        raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, f"servicio-{servicio} tardó demasiado")
-    except httpx.HTTPError as exc:
-        log.warning("No se pudo conectar con servicio-%s (%s %s): %s", servicio, request.method, request.url.path, exc)
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, f"servicio-{servicio} no está disponible"
-        )
+    cuerpo = await request.body()
+    idempotente = request.method in IDEMPOTENTES
+    for intento in range(2):
+        try:
+            r = await request.app.state.http.request(
+                request.method, destino, params=request.query_params, headers=cabeceras, content=cuerpo
+            )
+        except httpx.TimeoutException:
+            log.warning("Timeout al reenviar %s %s a servicio-%s", request.method, request.url.path, servicio)
+            raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, f"servicio-{servicio} tardó demasiado")
+        except httpx.HTTPError as exc:
+            # Una escritura solo se repite si nunca llegó al servicio (ConnectError): así no se duplica
+            if intento == 0 and (idempotente or isinstance(exc, httpx.ConnectError)):
+                await asyncio.sleep(0.15)
+                continue
+            log.warning("No se pudo conectar con servicio-%s (%s %s): %s", servicio, request.method, request.url.path, exc)
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, f"servicio-{servicio} no está disponible"
+            )
+        # 503 = el servicio perdió su conexión con Neon; una lectura se repite una vez con conexión nueva
+        if r.status_code == 503 and idempotente and intento == 0:
+            await asyncio.sleep(0.3)
+            continue
+        break
 
     return Response(
         content=r.content,

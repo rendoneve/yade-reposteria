@@ -163,6 +163,8 @@ CREATE TABLE IF NOT EXISTS negocio.negocio (
     hero_url        VARCHAR(500),         -- imagen del hero de Inicio
     banner_url      VARCHAR(500),         -- banner de "Acerca de"
     texto_principal TEXT,                 -- texto del hero de Inicio (una línea por renglón)
+    catalogo_url    VARCHAR(500),         -- imagen del hero del Menú (catálogo)
+    texto_catalogo  TEXT,                 -- texto del hero del Menú (una línea por renglón)
     texto_acerca    TEXT,                 -- historia del negocio
     whatsapp        VARCHAR(20),          -- ej. 5216681234567
     ubicacion       VARCHAR(255),         -- dirección escrita

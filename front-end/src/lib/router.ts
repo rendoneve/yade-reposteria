@@ -1,13 +1,22 @@
 /* Router mínimo con la History API (sin dependencias extra). El enlace está en components/Link.tsx. */
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 const EVENTO = 'cambio-ruta'
 
+const sinMovimiento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 export function navegar(ruta: string, reemplazar = false) {
-  if (reemplazar) history.replaceState(null, '', ruta)
-  else history.pushState(null, '', ruta)
-  window.dispatchEvent(new Event(EVENTO))
-  if (!reemplazar) window.scrollTo(0, 0) // al cambiar un filtro (?categoria=) no se brinca hasta arriba
+  const cambiar = () => {
+    if (reemplazar) history.replaceState(null, '', ruta)
+    else history.pushState(null, '', ruta)
+    // flushSync: la pantalla nueva ya está en el DOM cuando el navegador toma la "foto" de la transición
+    flushSync(() => window.dispatchEvent(new Event(EVENTO)))
+    if (!reemplazar) window.scrollTo(0, 0) // al cambiar un filtro (?categoria=) no se brinca hasta arriba
+  }
+  // Cambio de pantalla con transición (index.css). Un filtro (reemplazar) cambia sin animación.
+  if (!reemplazar && document.startViewTransition && !sinMovimiento()) document.startViewTransition(cambiar)
+  else cambiar()
 }
 
 export function useRuta() {

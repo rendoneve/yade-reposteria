@@ -1,36 +1,28 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import heroCatalogo from '../assets/img/hero-catalogo.webp'
 import DetalleProducto from '../components/DetalleProducto'
 import Encabezado from '../components/Encabezado'
 import { EsqueletoPostres, MensajeError, Vacio } from '../components/Estado'
 import Pie from '../components/Pie'
 import TarjetaPostre from '../components/TarjetaPostre'
 import {
-  api,
   ETIQUETA_DISPONIBILIDAD,
   formatoPrecio,
   nombreEtiqueta,
   type Categoria,
   type Disponibilidad,
-  type Etiqueta,
   type Producto,
 } from '../lib/api'
 import { precargar } from '../lib/cache'
+import { CATEGORIAS, cargarCategorias, cargarEtiquetas, cargarProductos, claveProductos, ETIQUETAS } from '../lib/datos'
 import { chipFiltro, enlaceDorado, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
 import { navegar, useRuta } from '../lib/router'
+import { useNegocio } from '../lib/negocio'
 import { useDatos } from '../lib/useDatos'
 
 const DISPONIBILIDADES: Disponibilidad[] = ['bajo pedido', 'stock', 'proximamente']
-const porId = <T extends { id: number }>(lista: T[]) => [...lista].sort((a, b) => a.id - b.id)
 const sinAcentos = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// En el orden en que se crearon (así las acomoda el administrador)
-const cargarCategorias = () => api<Categoria[]>('/categorias').then(porId)
-const cargarEtiquetas = () => api<Etiqueta[]>('/etiquetas').then(porId)
-const claveProductos = (id: number) => `productos:categoria:${id}`
-const cargarProductos = (id: number) => () =>
-  api<Producto[]>('/productos', { params: { categoria_id: id, limit: 500 } })
 
 const linea = 'mt-[26px] mb-3.5 w-full border-t border-tinto-oscuro/30'
 const subtitulo = 'mb-2 font-titulo text-[25px] leading-[1.2] font-bold text-tinto-texto capitalize'
@@ -44,8 +36,10 @@ const casilla =
 /* PRODUCTOS (Figma 20:2) */
 export default function Catalogo() {
   const { query } = useRuta()
-  const categorias = useDatos('categorias', cargarCategorias)
-  const etiquetas = useDatos('etiquetas', cargarEtiquetas)
+  // Texto e imagen del hero: se editan en Panel → Configuración → Hero del menú
+  const { catalogoPropio, catalogoImagen, catalogoLineas, cargando: cargandoNegocio } = useNegocio()
+  const categorias = useDatos(CATEGORIAS, cargarCategorias)
+  const etiquetas = useDatos(ETIQUETAS, cargarEtiquetas)
 
   const idEnUrl = Number(query.get('categoria')) || null
   const seleccionada =
@@ -96,13 +90,29 @@ export default function Catalogo() {
   return (
     <div className={pagina}>
       <section className={`${hero} h-[480px] overflow-hidden bg-[linear-gradient(180deg,rgba(155,61,79,0)_-17.8%,#300e15_100%)]`}>
+        {/* Foto que subió el negocio: de fondo a todo lo ancho, con degradado para que se lea el texto.
+            Primera visita: mientras llega /negocio no se muestra la imagen ni el texto del diseño. */}
+        {!cargandoNegocio && catalogoPropio && (
+          <>
+            <img src={catalogoPropio} className="absolute inset-0 h-full w-full object-cover" alt="" fetchPriority="high" />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom_right,#2C1217_0%,transparent_75%)]" />
+          </>
+        )}
         <Encabezado />
-        <p className="absolute top-[136px] left-margen font-ui text-[17px] leading-[1.2] font-semibold text-white max-[760px]:static max-[760px]:mb-2.5">Nuestro catálogo</p>
-        <h1 className={`${heroTitulo} top-[140px] h-[240px]`}>
-          <span className={heroLineaChica}>POSTRES QUE HACEN</span>
-          <span className={heroLinea}>LA VIDA MÁS DULCE</span>
-        </h1>
-        <img fetchPriority="high" className="pointer-events-none absolute top-[92px] left-[calc(50%+60px)] h-auto w-[612px] max-w-none max-[1280px]:top-[110px] max-[1280px]:-right-5 max-[1280px]:left-auto max-[1280px]:w-[520px] max-[1000px]:top-[150px] max-[1000px]:w-[420px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroCatalogo} width={873} height={675} alt="" />
+        {/* Texto por encima de la foto (en celular va en flujo normal, antes de la ilustración) */}
+        <div className="relative z-10 h-full max-[760px]:h-auto">
+          <p className="absolute top-[136px] left-margen font-ui text-[17px] leading-[1.2] font-semibold text-white max-[760px]:static max-[760px]:mb-2.5">Nuestro catálogo</p>
+          <h1 className={`${heroTitulo} top-[140px] h-[240px]`} aria-busy={cargandoNegocio}>
+            {/* El primer renglón va un poco más chico, como en el diseño */}
+            {!cargandoNegocio && catalogoLineas.map((l, i) => (
+              <span key={i} className={i === 0 && catalogoLineas.length > 1 ? heroLineaChica : heroLinea}>{l}</span>
+            ))}
+          </h1>
+        </div>
+        {/* Sin foto propia: ilustración del diseño, a la derecha del texto (debajo en celular) */}
+        {!cargandoNegocio && !catalogoPropio && (
+          <img fetchPriority="high" className="pointer-events-none absolute top-[92px] left-[calc(50%+60px)] h-auto w-[612px] max-w-none max-[1280px]:top-[110px] max-[1280px]:-right-5 max-[1280px]:left-auto max-[1280px]:w-[520px] max-[1000px]:top-[150px] max-[1000px]:w-[420px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={catalogoImagen} width={873} height={675} alt="" />
+        )}
       </section>
 
       <div className="flex flex-1 items-stretch max-[760px]:flex-col">

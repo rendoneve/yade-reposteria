@@ -9,7 +9,12 @@ from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
-_http = httpx.Client(base_url=settings.catalogo_service_url, timeout=5.0)
+_http = httpx.Client(
+    base_url=settings.catalogo_service_url,
+    timeout=5.0,
+    limits=httpx.Limits(keepalive_expiry=2.0),  # menor que el de uvicorn (5 s)
+    transport=httpx.HTTPTransport(retries=1),  # reintenta si no se pudo conectar
+)
 
 
 def nombres_de_productos(ids: list[int]) -> dict[int, str]:

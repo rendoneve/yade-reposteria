@@ -13,6 +13,7 @@ _http = httpx.Client(
     base_url=settings.citas_service_url,
     headers={"X-Internal-Key": settings.internal_api_key},
     timeout=5.0,
+    limits=httpx.Limits(keepalive_expiry=2.0),  # menor que el de uvicorn (5 s)
 )
 
 

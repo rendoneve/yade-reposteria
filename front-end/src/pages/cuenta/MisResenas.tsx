@@ -2,14 +2,13 @@ import { useState, type FormEvent } from 'react'
 import CuentaLayout from '../../components/CuentaLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
 import TarjetaCita from '../../components/TarjetaCita'
-import { api, formatoDia, formatoFecha, type Cita, type Resena } from '../../lib/api'
+import { api, formatoDia, formatoFecha, type Cita } from '../../lib/api'
 import { botonPildora, campoPublico, chipProducto, controlPublico, errorPublico, tarjetaCrema } from '../../lib/estilos'
 import { avisar } from '../../lib/avisos'
 import { useRuta } from '../../lib/router'
+import { cargarMisCitas, cargarMisResenas, MIS_CITAS, MIS_RESENAS } from '../../lib/datos'
 import { useDatos } from '../../lib/useDatos'
 
-const cargarMisCitas = () => api<Cita[]>('/citas/mias')
-const cargarMisResenas = () => api<Resena[]>('/resenas/mias')
 const subtitulo = 'mb-3.5 font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto'
 
 /* Panel del cliente: reseñas. Solo se pueden reseñar las citas terminadas, una vez cada una;
@@ -18,8 +17,8 @@ export default function MisResenas() {
   const { query } = useRuta()
   const citaElegida = Number(query.get('cita')) || null
   // Las dos pantallas de la cuenta usan las mismas claves: al pasar de una a otra no se vuelve a esperar
-  const citas = useDatos('citas:mias', cargarMisCitas)
-  const resenas = useDatos('resenas:mias', cargarMisResenas)
+  const citas = useDatos(MIS_CITAS, cargarMisCitas)
+  const resenas = useDatos(MIS_RESENAS, cargarMisResenas)
 
   const conResena = new Set(resenas.datos?.map((r) => r.cita_id))
   const pendientes = resenas.datos

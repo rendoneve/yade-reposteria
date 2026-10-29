@@ -40,8 +40,10 @@ class NegocioUpdate(BaseModel):
     nombre: str | None = Field(default=None, max_length=100)
     logo_url: str | None = Field(default=None, max_length=500)
     hero_url: str | None = Field(default=None, max_length=500)
+    catalogo_url: str | None = Field(default=None, max_length=500)
     banner_url: str | None = Field(default=None, max_length=500)
     texto_principal: str | None = None
+    texto_catalogo: str | None = None
     texto_acerca: str | None = None
     whatsapp: str | None = Field(
         default=None, pattern=r"^\+?[0-9]{10,15}$", description="Solo números, p. ej. 5216681234567"
@@ -56,8 +58,10 @@ class NegocioOut(BaseModel):
     nombre: str | None
     logo_url: str | None
     hero_url: str | None
+    catalogo_url: str | None
     banner_url: str | None
     texto_principal: str | None
+    texto_catalogo: str | None
     texto_acerca: str | None
     whatsapp: str | None
     ubicacion: str | None

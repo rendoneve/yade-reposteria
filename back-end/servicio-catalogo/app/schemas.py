@@ -6,6 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Disponibilidad = Literal["bajo pedido", "stock", "proximamente"]
 URL = Field(default=None, max_length=500)
+CENTAVOS = Decimal("0.01")
+
+
+def _a_centavos(v: Decimal | None) -> Decimal | None:
+    """12 -> 12.00, igual que NUMERIC(10, 2): la respuesta sale como la guarda la BD sin volver a leerla."""
+    return v.quantize(CENTAVOS) if v is not None else None
 
 
 # ---------- Etiquetas ----------
@@ -47,6 +53,8 @@ class ProductoIn(BaseModel):
     categoria_id: int
     etiquetas: list[str] = Field(default_factory=list, examples=[["nuevos", "sin azucar"]])
 
+    _precio = field_validator("precio")(_a_centavos)
+
 
 class ProductoUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=150)
@@ -56,6 +64,8 @@ class ProductoUpdate(BaseModel):
     disponibilidad: Disponibilidad | None = None
     categoria_id: int | None = None
     etiquetas: list[str] | None = None
+
+    _precio = field_validator("precio")(_a_centavos)
 
 
 class ProductoOut(BaseModel):
