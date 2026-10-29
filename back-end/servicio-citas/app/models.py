@@ -21,6 +21,8 @@ class CitaProducto(Base):
 
 class Cita(Base):
     __tablename__ = "citas"
+    # Trae id, fechas y valores por defecto en el mismo INSERT/UPDATE (RETURNING): sin db.refresh()
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     fecha: Mapped[datetime] = mapped_column(DateTime(timezone=True))

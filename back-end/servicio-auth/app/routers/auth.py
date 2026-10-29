@@ -50,7 +50,6 @@ def registro(datos: RegistroIn, db: DB, tareas: BackgroundTasks):
     )
     db.add(usuario)
     db.commit()
-    db.refresh(usuario)
     tareas.add_task(
         registrar_actividad, usuario.username, f"Nuevo cliente registrado: {usuario.nombre_completo}", "nuevo"
     )
@@ -71,7 +70,6 @@ def editar_mi_perfil(datos: PerfilUpdate, actual: UsuarioActual, db: DB, tareas:
     for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
     db.commit()
-    db.refresh(usuario)
     # El historial es del panel: los cambios de perfil de los clientes no se registran
     if actual.rol == "admin":
         tareas.add_task(registrar_actividad, actual.username, "Actualizó su perfil", "modificacion")

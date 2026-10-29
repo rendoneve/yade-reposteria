@@ -13,7 +13,8 @@
   --color-chip: #d6c7bd;
   --color-caramelo: #d9b89c;
   --color-sombra-tarjeta: #c8b49e;
-  --color-dorado: #99651c; /* Acentos (títulos de sección, encabezados de tabla) */
+  --color-dorado: #99651c; /* Acentos en títulos grandes */
+  --color-dorado-texto: #7d5214; /* Dorado para texto chico: contraste AA (≈5:1) sobre beige y crema */
   --color-texto-secundario: #6f6262;
   --color-borde: #e5dad5;
   --color-exito: #2f6b4f;

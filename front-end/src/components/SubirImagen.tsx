@@ -20,20 +20,31 @@ export default function SubirImagen({
   fondoOscuro = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [vista, setVista] = useState<string | null>(imagenInicial ?? null);
+  // `local`: vista previa de un archivo elegido (blob:). `quitada`: se quitó la imagen guardada.
+  const [local, setLocal] = useState<string | null>(null);
+  const [quitada, setQuitada] = useState(false);
+  const [inicial, setInicial] = useState(imagenInicial);
   const [arrastrando, setArrastrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setVista(imagenInicial ?? null);
-  }, [imagenInicial]);
+  // Si llega otra imagen guardada (p. ej. después de guardar), se vuelve a mostrar esa
+  if (inicial !== imagenInicial) {
+    setInicial(imagenInicial);
+    setLocal(null);
+    setQuitada(false);
+  }
+  const vista = local ?? (quitada ? null : (imagenInicial ?? null));
+  const setVista = (url: string | null) => {
+    setLocal(url);
+    setQuitada(url === null);
+  };
 
   // Libera la vista previa local (blob:) cuando cambia o se desmonta
   useEffect(() => {
     return () => {
-      if (vista?.startsWith("blob:")) URL.revokeObjectURL(vista);
+      if (local) URL.revokeObjectURL(local);
     };
-  }, [vista]);
+  }, [local]);
 
   const manejarImagen = (imagen: File) => {
     if (!TIPOS_IMAGEN.includes(imagen.type)) {

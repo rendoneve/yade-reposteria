@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import CuentaLayout from '../../components/CuentaLayout'
-import { useSesion } from '../../lib/auth'
+import { useSesion } from '../../lib/sesion'
 import { botonOscuro, campoPublico, controlPublico, enlaceDorado, errorPublico, tarjetaCuenta } from '../../lib/estilos'
-import { Link, navegar, rutaSiguiente, useRuta } from '../../lib/router'
+import Link from '../../components/Link'
+import { navegar, rutaSiguiente, useRuta } from '../../lib/router'
 
 /* Inicio de sesión de clientes. En /cuenta/* se muestra en lugar de la página mientras no hay sesión. */
 export default function Entrar() {

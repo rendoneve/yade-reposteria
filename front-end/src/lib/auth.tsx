@@ -1,26 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { api, ErrorApi, guardarToken, leerToken, type Usuario } from './api'
-
-export type DatosRegistro = {
-  nombre_completo: string
-  username: string
-  correo: string
-  password: string
-  telefono: string | null
-}
-
-type Sesion = {
-  usuario: Usuario | null
-  cargando: boolean
-  entrar: (usuario: string, password: string) => Promise<Usuario>
-  registrar: (datos: DatosRegistro) => Promise<Usuario>
-  actualizar: (usuario: Usuario) => void
-  salir: () => void
-}
+import { limpiarCache } from './cache'
+import { ContextoSesion, type DatosRegistro } from './sesion'
 
 type RespuestaToken = { access_token: string; usuario: Usuario }
-
-const Contexto = createContext<Sesion | null>(null)
 const CLAVE_USUARIO = 'yade_usuario'
 
 function leerUsuarioGuardado(): Usuario | null {
@@ -63,12 +46,13 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const expirada = () => { guardarUsuario(null); setUsuario(null) }
+    const expirada = () => { guardarUsuario(null); setUsuario(null); limpiarCache() }
     window.addEventListener('sesion-expirada', expirada)
     return () => window.removeEventListener('sesion-expirada', expirada)
   }, [])
 
   const iniciar = useCallback((r: RespuestaToken) => {
+    limpiarCache() // "mis citas" y demás datos son de cada usuario
     guardarToken(r.access_token)
     guardarUsuario(r.usuario)
     setUsuario(r.usuario)
@@ -88,6 +72,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   )
 
   const salir = useCallback(() => {
+    limpiarCache()
     guardarToken(null)
     guardarUsuario(null)
     setUsuario(null)
@@ -98,11 +83,5 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     setUsuario(actual)
   }, [])
 
-  return <Contexto.Provider value={{ usuario, cargando, entrar, registrar, actualizar, salir }}>{children}</Contexto.Provider>
-}
-
-export function useSesion() {
-  const s = useContext(Contexto)
-  if (!s) throw new Error('useSesion debe usarse dentro de <ProveedorSesion>')
-  return s
+  return <ContextoSesion.Provider value={{ usuario, cargando, entrar, registrar, actualizar, salir }}>{children}</ContextoSesion.Provider>
 }

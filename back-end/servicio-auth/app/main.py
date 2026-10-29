@@ -28,6 +28,7 @@ def crear_admin_inicial() -> None:
                 username=settings.admin_username,
                 correo=settings.admin_correo,
                 password_hash=hash_password(settings.admin_password),
+                rol="admin",
             )
         )
         db.commit()

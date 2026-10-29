@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react'
-import { useSesion } from '../lib/auth'
+import { useSesion } from '../lib/sesion'
 import { useNegocio } from '../lib/negocio'
-import { Link, useRuta } from '../lib/router'
+import Link from './Link'
+import { useRuta } from '../lib/router'
 import Pie from './Pie'
 
 const MENU = [
   { to: '/admin', texto: 'Inicio' },
   { to: '/admin/productos', texto: 'Productos' },
   { to: '/admin/citas', texto: 'Citas' },
-  { to: '/admin/paquetes', texto: 'Paquetes' },
   { to: '/admin/resenas', texto: 'Reseñas' },
-  { to: '/admin/configuracion', texto: 'Configuracion' },
+  { to: '/admin/paquetes', texto: 'Paquetes', pronto: true },
+  { to: '/admin/configuracion', texto: 'Configuración' },
 ]
 
 /* Estructura común de las pantallas ADMINISTRADOR (barra superior, menú lateral, pie). */
@@ -51,6 +52,7 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
               aria-current={activo(m.to) ? 'page' : undefined}
             >
               {m.texto}
+              {m.pronto && <span className="ml-2 rounded-md bg-beige/15 px-1.5 py-0.5 font-ui text-[11px] font-semibold tracking-wide text-beige/80 uppercase">Pronto</span>}
             </Link>
           ))}
         </nav>

@@ -1,5 +1,5 @@
-/* Router mínimo con la History API (sin dependencias extra). */
-import { useEffect, useState, type AnchorHTMLAttributes, type MouseEvent } from 'react'
+/* Router mínimo con la History API (sin dependencias extra). El enlace está en components/Link.tsx. */
+import { useEffect, useState } from 'react'
 
 const EVENTO = 'cambio-ruta'
 
@@ -7,7 +7,7 @@ export function navegar(ruta: string, reemplazar = false) {
   if (reemplazar) history.replaceState(null, '', ruta)
   else history.pushState(null, '', ruta)
   window.dispatchEvent(new Event(EVENTO))
-  window.scrollTo(0, 0)
+  if (!reemplazar) window.scrollTo(0, 0) // al cambiar un filtro (?categoria=) no se brinca hasta arriba
 }
 
 export function useRuta() {
@@ -31,14 +31,9 @@ export function rutaSiguiente(query: URLSearchParams): string | null {
   return s && s.startsWith('/') && !s.startsWith('//') ? s : null
 }
 
-type LinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }
-
-export function Link({ to, onClick, ...resto }: LinkProps) {
-  const alClic = (e: MouseEvent<HTMLAnchorElement>) => {
-    onClick?.(e)
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
-    e.preventDefault()
-    navegar(to)
-  }
-  return <a href={to} onClick={alClic} {...resto} />
+/* Título de la pestaña (y de los resultados de Google) para cada pantalla. */
+export function useTitulo(titulo: string | null, nombreNegocio: string) {
+  useEffect(() => {
+    document.title = titulo ? `${titulo} · ${nombreNegocio}` : nombreNegocio
+  }, [titulo, nombreNegocio])
 }

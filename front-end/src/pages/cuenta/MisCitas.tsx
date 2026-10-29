@@ -1,20 +1,24 @@
 import { useState } from 'react'
 import CuentaLayout from '../../components/CuentaLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
-import Modal from '../../components/Modal'
+import Confirmar from '../../components/Confirmar'
 import TarjetaCita from '../../components/TarjetaCita'
 import { api, formatoFecha, type Cita, type Resena } from '../../lib/api'
-import { accionesAdmin, botonPeligro, botonPildora, enlaceDorado, errorPublico } from '../../lib/estilos'
-import { Link } from '../../lib/router'
+import { avisar } from '../../lib/avisos'
+import { botonPeligro, botonPildora, enlaceDorado } from '../../lib/estilos'
+import Link from '../../components/Link'
 import { useDatos } from '../../lib/useDatos'
 
+const cargarMisCitas = () => api<Cita[]>('/citas/mias')
+const cargarMisResenas = () => api<Resena[]>('/resenas/mias')
 const subtitulo = 'mb-3.5 font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto'
 const pieTarjeta = 'mt-1 flex flex-wrap items-center justify-end gap-3'
 
 /* Panel del cliente: sus citas, con opción de cancelar las próximas y de reseñar las terminadas. */
 export default function MisCitas() {
-  const citas = useDatos(() => api<Cita[]>('/citas/mias'))
-  const resenas = useDatos(() => api<Resena[]>('/resenas/mias'))
+  // Las dos pantallas de la cuenta usan las mismas claves: al pasar de una a otra no se vuelve a esperar
+  const citas = useDatos('citas:mias', cargarMisCitas)
+  const resenas = useDatos('resenas:mias', cargarMisResenas)
   const [cancelando, setCancelando] = useState<Cita | null>(null)
   const [ahora] = useState(Date.now)
 
@@ -84,35 +88,19 @@ export default function MisCitas() {
 }
 
 function ConfirmarCancelacion({ cita, onCerrar, onCancelada }: { cita: Cita; onCerrar: () => void; onCancelada: () => void }) {
-  const [enviando, setEnviando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const cancelar = async () => {
-    setEnviando(true)
-    setError(null)
-    try {
-      await api(`/citas/mias/${cita.id}/cancelar`, { method: 'PATCH' })
-      onCancelada()
-    } catch (err) {
-      setError((err as Error).message)
-      setEnviando(false)
-    }
-  }
-
   return (
-    <Modal titulo="Cancelar cita" onCerrar={onCerrar}>
-      <p className="font-texto text-base leading-normal">
-        ¿Seguro que quieres cancelar tu cita del <strong>{formatoFecha(cita.fecha)}</strong>? Esta acción no se puede deshacer.
-      </p>
-      {error && <p className={`${errorPublico} mt-3`} role="alert">{error}</p>}
-      <div className={`${accionesAdmin} mt-5`}>
-        <button type="button" className={`${botonPildora} bg-transparent text-tinto-texto! enabled:hover:bg-tinto/10`} onClick={onCerrar}>
-          No, conservarla
-        </button>
-        <button type="button" className={`${botonPeligro} mr-0!`} onClick={cancelar} disabled={enviando}>
-          {enviando ? 'Cancelando…' : 'Sí, cancelar'}
-        </button>
-      </div>
-    </Modal>
+    <Confirmar
+      titulo="Cancelar cita"
+      textoAccion="Sí, cancelar"
+      textoCancelar="No, conservarla"
+      onCerrar={onCerrar}
+      onConfirmar={async () => {
+        await api(`/citas/mias/${cita.id}/cancelar`, { method: 'PATCH' })
+        avisar('Tu cita quedó cancelada')
+        onCancelada()
+      }}
+    >
+      ¿Seguro que quieres cancelar tu cita del <strong>{formatoFecha(cita.fecha)}</strong>? Esta acción no se puede deshacer.
+    </Confirmar>
   )
 }

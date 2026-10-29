@@ -50,10 +50,10 @@ def crear_usuario(datos: UsuarioIn, admin: Admin, db: DB, tareas: BackgroundTask
         correo=datos.correo,
         telefono=datos.telefono,
         password_hash=hash_password(datos.password),
+        rol="admin",  # el panel solo da de alta administradores; los clientes se registran solos
     )
     db.add(usuario)
     db.commit()
-    db.refresh(usuario)
     tareas.add_task(
         registrar_actividad, admin.username, f"Nuevo usuario: {usuario.username}", "nuevo"
     )
@@ -74,7 +74,6 @@ def editar_usuario(
     for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
     db.commit()
-    db.refresh(usuario)
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó el usuario {usuario.username}", "modificacion"
     )

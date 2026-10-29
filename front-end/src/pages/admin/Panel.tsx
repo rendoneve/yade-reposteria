@@ -2,8 +2,8 @@ import { useState } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { Cargando, MensajeError, Vacio } from '../../components/Estado'
 import { api, formatoFecha, type Estadisticas } from '../../lib/api'
-import { useSesion } from '../../lib/auth'
-import { Link } from '../../lib/router'
+import { useSesion } from '../../lib/sesion'
+import Link from '../../components/Link'
 import { celdaTd, celdaTh, enlaceDorado, tabla, tarjetaAdmin, tarjetaCrema, tituloTarjetaAdmin } from '../../lib/estilos'
 import { useDatos } from '../../lib/useDatos'
 
@@ -12,11 +12,13 @@ const COLOR_TIPO: Record<string, string> = {
   eliminacion: 'bg-[#f0d6d8] text-error',
 }
 
+const cargarEstadisticas = () => api<Estadisticas>('/estadisticas', { params: { recientes: 20 } })
+
 /* ADMINISTRADOR (Figma 20:150) */
 export default function Panel() {
   const { usuario } = useSesion()
   const [verTodo, setVerTodo] = useState(false)
-  const stats = useDatos(() => api<Estadisticas>('/estadisticas', { params: { recientes: 20 } }))
+  const stats = useDatos('estadisticas', cargarEstadisticas)
 
   const nombre = usuario?.nombre_completo.split(' ')[0] ?? ''
   const actividad = stats.datos?.actividad_reciente ?? []
@@ -25,8 +27,8 @@ export default function Panel() {
   return (
     <AdminLayout titulo={`Bienvenide, ${nombre}`}>
       <div className="mb-5 grid grid-cols-3 gap-4 max-[960px]:grid-cols-1">
-        <Stat titulo="Productos en catalogo" valor={stats.datos?.productos_en_catalogo} cargando={stats.cargando} />
-        <Stat titulo="Citas proximas" valor={stats.datos?.citas_proximas} cargando={stats.cargando} />
+        <Stat titulo="Productos en catálogo" valor={stats.datos?.productos_en_catalogo} cargando={stats.cargando} />
+        <Stat titulo="Citas próximas" valor={stats.datos?.citas_proximas} cargando={stats.cargando} />
         <Stat titulo="Citas terminadas" valor={stats.datos?.citas_terminadas} cargando={stats.cargando} />
       </div>
       {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
@@ -35,17 +37,20 @@ export default function Panel() {
       ))}
 
       <section className={`${tarjetaAdmin} px-7 pt-[26px] pb-[22px]`}>
-        <h2 className={tituloTarjetaAdmin}>CITAS PROXIMAS</h2>
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className={tituloTarjetaAdmin}>CITAS PRÓXIMAS</h2>
+          <Link to="/admin/citas" className={`${enlaceDorado} text-[17px]`}>Ver todas  →</Link>
+        </div>
         <table className={tabla}>
           <thead>
-            <tr>{['Fecha de cita', 'Usuario', 'Telefono', 'Correo', 'Detalles'].map((t) => <th key={t} className={celdaTh}>{t}</th>)}</tr>
+            <tr>{['Fecha de cita', 'Cliente', 'Teléfono', 'Correo', 'Detalles'].map((t) => <th key={t} className={celdaTh}>{t}</th>)}</tr>
           </thead>
           <tbody>
             {stats.datos?.citas_siguientes.map((c) => (
               <tr key={c.id}>
                 <td className={celdaTd}>{formatoFecha(c.fecha)}</td>
                 <td className={celdaTd}>{c.nombre_cliente}</td>
-                <td className={celdaTd}>{c.telefono}</td>
+                <td className={celdaTd}><a className="hover:underline" href={`tel:${c.telefono.replace(/[^\d+]/g, '')}`}>{c.telefono}</a></td>
                 <td className={celdaTd}>{c.correo ?? '—'}</td>
                 <td className={`${celdaTd} text-[13px]! text-texto-secundario`}>{c.detalles ?? '—'}</td>
               </tr>
@@ -53,7 +58,6 @@ export default function Panel() {
           </tbody>
         </table>
         {stats.cargando && <Cargando />}
-        {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
         {stats.datos?.citas_siguientes.length === 0 && <Vacio texto="No hay citas próximas." />}
       </section>
 

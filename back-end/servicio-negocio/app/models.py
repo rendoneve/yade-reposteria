@@ -10,6 +10,8 @@ class Negocio(Base):
     """Una sola fila (id = 1) con el contenido editable del sitio."""
 
     __tablename__ = "negocio"
+    # Trae id, fechas y valores por defecto en el mismo INSERT/UPDATE (RETURNING): sin db.refresh()
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
     nombre: Mapped[str | None] = mapped_column(String(100))

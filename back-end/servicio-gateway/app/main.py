@@ -12,11 +12,14 @@
 
 import asyncio
 import logging
+import time
+from collections import deque
 from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import settings
 
@@ -52,6 +55,45 @@ SALTO = {
 }
 NO_DEVOLVER = SALTO | {"content-encoding"}
 
+# (método, recurso, resto) -> (máximo de peticiones, ventana en segundos)
+LIMITES = {
+    ("POST", "auth", "login"): (settings.limite_login_por_minuto, 60),
+    ("POST", "auth", "registro"): (settings.limite_registros_por_hora, 3600),
+    ("POST", "citas", ""): (settings.limite_citas_por_hora, 3600),
+}
+_intentos: dict[tuple[str, str, str, str], deque[float]] = {}
+
+
+def _ip(request: Request) -> str:
+    if settings.confiar_x_forwarded_for and (reenviada := request.headers.get("x-forwarded-for")):
+        return reenviada.split(",")[0].strip()
+    return request.client.host if request.client else "desconocida"
+
+
+def _revisar_limite(request: Request, recurso: str, resto: str) -> None:
+    """Ventana deslizante en memoria: frena fuerza bruta en el login y spam de citas/cuentas."""
+    regla = LIMITES.get((request.method, recurso, resto.strip("/")))
+    if not regla or regla[0] <= 0:
+        return
+    maximo, ventana = regla
+    ahora = time.monotonic()
+    clave = (_ip(request), request.method, recurso, resto)
+    marcas = _intentos.setdefault(clave, deque())
+    while marcas and ahora - marcas[0] >= ventana:
+        marcas.popleft()
+    if len(marcas) >= maximo:
+        espera = int(ventana - (ahora - marcas[0])) + 1
+        cuanto = f"{espera} segundos" if espera < 60 else f"{-(-espera // 60)} minutos"
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Demasiados intentos. Espera {cuanto} y vuelve a intentar.",
+            headers={"Retry-After": str(espera)},
+        )
+    marcas.append(ahora)
+    if len(_intentos) > 10_000:  # limpieza ocasional de IPs que ya no tienen intentos recientes
+        for k in [k for k, v in _intentos.items() if not v or ahora - v[-1] >= 3600]:
+            _intentos.pop(k, None)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,7 +108,10 @@ app.add_middleware(
     allow_origins=settings.lista_cors,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"],  # el panel lo usa para paginar
 )
+# Las listas JSON pesan 70-85 % menos comprimidas
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.get("/health", tags=["Salud"])
@@ -114,6 +159,7 @@ async def _reenviar(request: Request, recurso: str, resto: str) -> Response:
     # Registrar actividades es solo entre servicios; desde afuera únicamente se consulta.
     if recurso == "actividades" and request.method != "GET":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Operación no permitida")
+    _revisar_limite(request, recurso, resto)
 
     destino = f"{SERVICIOS[servicio]}/{recurso}" + (f"/{resto}" if resto else "")
     cabeceras = {

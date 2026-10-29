@@ -1,12 +1,13 @@
 import { CircleUserRound } from 'lucide-react'
-import { useSesion } from '../lib/auth'
+import { useSesion } from '../lib/sesion'
 import { useNegocio } from '../lib/negocio'
-import { Link, useRuta } from '../lib/router'
+import Link from './Link'
+import { useRuta } from '../lib/router'
 
 const ENLACES = [
   { to: '/', texto: 'Inicio' },
   { to: '/acerca-de', texto: 'Acerca de' },
-  { to: '/catalogo', texto: 'Menu' },
+  { to: '/catalogo', texto: 'Menú' },
 ]
 
 /* ENCABEZADO (Figma 20:54) */

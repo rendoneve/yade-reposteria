@@ -16,7 +16,7 @@ DB = Annotated[Session, Depends(get_db)]
 
 
 def _obtener_o_404(db: Session, resena_id: int) -> Resena:
-    r = db.get(Resena, resena_id)
+    r = db.get(Resena, resena_id, options=[repo.CARGA_RESENA])
     if not r:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Reseña no encontrada")
     return r
@@ -31,7 +31,7 @@ def _productos(db: Session, ids: list[int]) -> list[Producto]:
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"Producto(s) que no existen: {', '.join(map(str, faltan))}",
         )
-    return productos
+    return sorted(productos, key=lambda p: p.nombre)
 
 
 @router.get("", response_model=list[ResenaOut])
@@ -58,10 +58,12 @@ def dejar_resena(datos: MiResenaIn, usuario: UsuarioActual, db: DB, tareas: Back
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cita no encontrada")
     if cita["estado"] != "terminado":
         raise HTTPException(status.HTTP_409_CONFLICT, "Solo puedes reseñar citas terminadas")
-    if repo.resena_de_cita(db, datos.cita_id):
+    if repo.resena_de_cita(db, datos.cita_id) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ya dejaste una reseña para esta cita")
     # Los productos que se hayan borrado del catálogo desde la cita simplemente no se ligan
-    productos = repo.productos_por_id(db, [p["producto_id"] for p in cita["productos"]])
+    productos = sorted(
+        repo.productos_por_id(db, [p["producto_id"] for p in cita["productos"]]), key=lambda p: p.nombre
+    )
     r = Resena(
         nombre_cliente=cita["nombre_cliente"],
         descripcion=datos.descripcion,
@@ -71,7 +73,6 @@ def dejar_resena(datos: MiResenaIn, usuario: UsuarioActual, db: DB, tareas: Back
     )
     db.add(r)
     db.commit()
-    db.refresh(r)
     tareas.add_task(
         registrar_actividad, usuario.username, f"Nueva reseña de {r.nombre_cliente}", "nuevo"
     )
@@ -90,7 +91,6 @@ def crear_resena(datos: ResenaIn, admin: Admin, db: DB, tareas: BackgroundTasks)
     r = Resena(**datos.model_dump(exclude={"producto_ids"}, exclude_none=True), productos=productos)
     db.add(r)
     db.commit()
-    db.refresh(r)
     tareas.add_task(
         registrar_actividad, admin.username, f"Nueva reseña de {r.nombre_cliente}", "nuevo"
     )
@@ -106,7 +106,6 @@ def editar_resena(resena_id: int, datos: ResenaUpdate, admin: Admin, db: DB, tar
     for campo, valor in cambios.items():
         setattr(r, campo, valor)
     db.commit()
-    db.refresh(r)
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó la reseña de {r.nombre_cliente}", "modificacion"
     )

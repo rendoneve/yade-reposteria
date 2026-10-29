@@ -11,7 +11,6 @@ def obtener_negocio(db: Session) -> Negocio:
         negocio = Negocio(id=1)
         db.add(negocio)
         db.commit()
-        db.refresh(negocio)
     return negocio
 
 

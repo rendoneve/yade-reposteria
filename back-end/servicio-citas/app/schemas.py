@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, EmailStr, Field
@@ -113,3 +113,21 @@ class ResumenAdminOut(BaseModel):
     citas_proximas: int
     citas_terminadas: int
     siguientes: list[CitaPanelOut]
+
+
+class FranjaOut(BaseModel):
+    inicio: datetime  # con la zona horaria del negocio
+    disponible: bool
+
+
+class DisponibilidadOut(BaseModel):
+    """Horas en que se puede agendar un día. Si los horarios no están configurados
+    (`configurado = false`), el sitio deja escoger cualquier hora."""
+
+    fecha: date
+    configurado: bool
+    abierto: bool
+    abre: time | None = None
+    cierra: time | None = None
+    duracion_minutos: int
+    franjas: list[FranjaOut] = Field(default_factory=list)

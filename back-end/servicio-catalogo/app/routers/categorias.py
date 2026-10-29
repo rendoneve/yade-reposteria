@@ -4,8 +4,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import repository as repo
+from app.core import cache
 from app.core.actividad import registrar_actividad
-from app.core.database import get_db
+from app.core.database import get_db, leer
 from app.core.security import Admin
 from app.models import Categoria
 from app.schemas import CategoriaIn, CategoriaOut, CategoriaUpdate
@@ -32,8 +33,9 @@ def _nombre_libre(db: Session, nombre: str, excepto_id: int | None = None) -> No
 
 
 @router.get("", response_model=list[CategoriaOut])
-def listar_categorias(db: DB):
-    return [_out(c, n) for c, n in repo.listar_categorias(db)]
+def listar_categorias():
+    # Se pide en casi todas las páginas: sale de la caché y solo toca la BD cuando cambia algo
+    return cache.obtener("categorias", lambda: leer(lambda db: [_out(c, n) for c, n in repo.listar_categorias(db)]))
 
 
 @router.get("/{categoria_id}", response_model=CategoriaOut)
@@ -48,7 +50,7 @@ def crear_categoria(datos: CategoriaIn, admin: Admin, db: DB, tareas: Background
     c = Categoria(**datos.model_dump())
     db.add(c)
     db.commit()
-    db.refresh(c)
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Nueva categoría: {c.nombre}", "nuevo")
     return _out(c, 0)
 
@@ -64,7 +66,7 @@ def editar_categoria(
     for campo, valor in cambios.items():
         setattr(c, campo, valor)
     db.commit()
-    db.refresh(c)
+    cache.limpiar()
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó la categoría {c.nombre}", "modificacion"
     )
@@ -82,4 +84,5 @@ def eliminar_categoria(categoria_id: int, admin: Admin, db: DB, tareas: Backgrou
     nombre = c.nombre
     db.delete(c)
     db.commit()
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó la categoría {nombre}", "eliminacion")

@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import botonEditar from "../../assets/img/boton-editar.png";
-import postreEjemplo from "../../assets/img/postre-ejemplo.png";
+import postreEjemplo from "../../assets/img/postre-ejemplo.webp";
 import AdminLayout from "../../components/AdminLayout";
+import Confirmar from "../../components/Confirmar";
 import { Cargando, MensajeError, Vacio } from "../../components/Estado";
+import Link from "../../components/Link";
 import Modal from "../../components/Modal";
 import SubirImagen from "../../components/SubirImagen";
 import {
@@ -11,6 +13,7 @@ import {
   resolverImagen,
   type CambioImagen,
   formatoPrecio,
+  nombreEtiqueta,
   type Categoria,
   type Disponibilidad,
   type Etiqueta,
@@ -29,8 +32,17 @@ import {
   formAdmin,
   tarjetaCrema,
 } from "../../lib/estilos";
-import { Link, navegar, useRuta } from "../../lib/router";
+import { avisar } from "../../lib/avisos";
+import { precargar } from "../../lib/cache";
+import { navegar, useRuta } from "../../lib/router";
 import { useDatos } from "../../lib/useDatos";
+
+const cargarCategorias = () =>
+  api<Categoria[]>("/categorias").then((l) => [...l].sort((a, b) => a.id - b.id));
+const cargarEtiquetas = () => api<Etiqueta[]>("/etiquetas");
+const claveProductos = (id: number) => `productos:categoria:${id}`;
+const cargarProductos = (id: number) => () =>
+  api<Producto[]>("/productos", { params: { categoria_id: id, limit: 500 } });
 
 const gridTarjetas =
   "mt-5 grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-x-4 gap-y-10";
@@ -46,12 +58,8 @@ export default function Productos() {
 /* ---------- Categorías ---------- */
 
 function Categorias() {
-  // En el orden en que se crearon
-  const categorias = useDatos(() =>
-    api<Categoria[]>("/categorias").then((l) =>
-      [...l].sort((a, b) => a.id - b.id),
-    ),
-  );
+  // En el orden en que se crearon (misma clave que el catálogo público: comparten caché)
+  const categorias = useDatos("categorias", cargarCategorias);
   const [editando, setEditando] = useState<Categoria | "nueva" | null>(null);
 
   return (
@@ -63,7 +71,7 @@ function Categorias() {
           className={`${botonPildora} min-w-[200px]`}
           onClick={() => setEditando("nueva")}
         >
-          Añadir Categoria
+          Añadir categoría
         </button>
       }
     >
@@ -75,7 +83,7 @@ function Categorias() {
         />
       )}
       {categorias.datos?.length === 0 && (
-        <Vacio texto="Aún no hay categorías. Crea la primera con “Añadir Categoria”." />
+        <Vacio texto="Aún no hay categorías. Crea la primera con “Añadir categoría”." />
       )}
       <div className={gridTarjetas}>
         {categorias.datos?.map((c) => (
@@ -85,6 +93,7 @@ function Categorias() {
             titulo={c.nombre}
             subtitulo={`${c.cantidad_productos} ${c.cantidad_productos === 1 ? "elemento" : "elementos"}`}
             onAbrir={() => navegar(`/admin/productos/${c.id}`)}
+            onPrecargar={() => precargar(claveProductos(c.id), cargarProductos(c.id))}
             onEditar={() => setEditando(c)}
           />
         ))}
@@ -115,11 +124,12 @@ function FormCategoria({
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [imagen, setImagen] = useState<CambioImagen>(undefined);
+  const [confirmando, setConfirmando] = useState(false);
 
   const guardar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    await ejecutar(async () => {
+    await ejecutar(categoria ? "Categoría guardada" : "Categoría creada", async () => {
       const body = {
         nombre: String(f.get("nombre")).trim(),
         imagen_url: await resolverImagen(imagen, categoria?.imagen_url ?? null),
@@ -132,16 +142,17 @@ function FormCategoria({
 
   const eliminar = async () => {
     if (!categoria) return;
-    await ejecutar(() =>
-      api(`/categorias/${categoria.id}`, { method: "DELETE" }),
-    );
+    await api(`/categorias/${categoria.id}`, { method: "DELETE" });
+    avisar(`Categoría “${categoria.nombre}” eliminada`);
+    onGuardado();
   };
 
-  const ejecutar = async (accion: () => Promise<unknown>) => {
+  const ejecutar = async (mensaje: string, accion: () => Promise<unknown>) => {
     setEnviando(true);
     setError(null);
     try {
       await accion();
+      avisar(mensaje);
       onGuardado();
     } catch (err) {
       setError((err as Error).message);
@@ -184,7 +195,7 @@ function FormCategoria({
             <button
               type="button"
               className={botonPeligro}
-              onClick={eliminar}
+              onClick={() => setConfirmando(true)}
               disabled={enviando}
             >
               Eliminar
@@ -199,6 +210,17 @@ function FormCategoria({
           </button>
         </div>
       </form>
+      {confirmando && categoria && (
+        <Confirmar
+          titulo="Eliminar categoría"
+          textoAccion="Sí, eliminar"
+          onCerrar={() => setConfirmando(false)}
+          onConfirmar={eliminar}
+        >
+          ¿Eliminar la categoría <strong>{categoria.nombre}</strong>? Esta acción no se puede deshacer.
+          {categoria.cantidad_productos > 0 && " Primero hay que mover o eliminar sus productos."}
+        </Confirmar>
+      )}
     </Modal>
   );
 }
@@ -206,17 +228,14 @@ function FormCategoria({
 /* ---------- Productos de una categoría ---------- */
 
 function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
-  const categoria = useDatos(
-    () => api<Categoria>(`/categorias/${categoriaId}`),
-    [categoriaId],
-  );
-  const productos = useDatos(
-    () =>
-      api<Producto[]>("/productos", {
-        params: { categoria_id: categoriaId, limit: 500 },
-      }),
-    [categoriaId],
-  );
+  // La categoría sale de la lista que ya está en caché (no hace falta otra petición)
+  const categorias = useDatos("categorias", cargarCategorias);
+  const categoria = {
+    datos: categorias.datos?.find((c) => c.id === categoriaId) ?? null,
+    cargando: categorias.cargando,
+    error: categorias.error,
+  };
+  const productos = useDatos(claveProductos(categoriaId), cargarProductos(categoriaId));
   const [editando, setEditando] = useState<Producto | "nuevo" | null>(null);
 
   return (
@@ -228,7 +247,7 @@ function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
           className={`${botonPildora} min-w-[200px]`}
           onClick={() => setEditando("nuevo")}
         >
-          Añadir Producto
+          Añadir producto
         </button>
       }
     >
@@ -265,6 +284,7 @@ function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
           onGuardado={() => {
             setEditando(null);
             productos.recargar();
+            categorias.recargar(); // cambia la cantidad de productos de cada categoría
           }}
         />
       )}
@@ -283,17 +303,19 @@ function FormProducto({
   onCerrar: () => void;
   onGuardado: () => void;
 }) {
-  const categorias = useDatos(() => api<Categoria[]>("/categorias"));
-  const etiquetas = useDatos(() => api<Etiqueta[]>("/etiquetas"));
+  const categorias = useDatos("categorias", cargarCategorias);
+  const etiquetas = useDatos("etiquetas", cargarEtiquetas);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [imagen, setImagen] = useState<CambioImagen>(undefined);
+  const [confirmando, setConfirmando] = useState(false);
 
-  const ejecutar = async (accion: () => Promise<unknown>) => {
+  const ejecutar = async (mensaje: string, accion: () => Promise<unknown>) => {
     setEnviando(true);
     setError(null);
     try {
       await accion();
+      avisar(mensaje);
       onGuardado();
     } catch (err) {
       setError((err as Error).message);
@@ -305,7 +327,7 @@ function FormProducto({
   const guardar = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    ejecutar(async () => {
+    ejecutar(producto ? "Producto guardado" : "Producto creado", async () => {
       const body = {
         nombre: String(f.get("nombre")).trim(),
         descripcion: String(f.get("descripcion")).trim(),
@@ -321,9 +343,12 @@ function FormProducto({
     });
   };
 
-  const eliminar = () =>
-    producto &&
-    ejecutar(() => api(`/productos/${producto.id}`, { method: "DELETE" }));
+  const eliminar = async () => {
+    if (!producto) return;
+    await api(`/productos/${producto.id}`, { method: "DELETE" });
+    avisar(`Producto “${producto.nombre}” eliminado`);
+    onGuardado();
+  };
 
   return (
     <Modal
@@ -415,7 +440,7 @@ function FormProducto({
                 value={e.nombre}
                 defaultChecked={producto?.etiquetas.includes(e.nombre)}
               />
-              {e.nombre}
+              {nombreEtiqueta(e.nombre)}
             </label>
           ))}
         </fieldset>
@@ -429,7 +454,7 @@ function FormProducto({
             <button
               type="button"
               className={botonPeligro}
-              onClick={eliminar}
+              onClick={() => setConfirmando(true)}
               disabled={enviando}
             >
               Eliminar
@@ -444,6 +469,16 @@ function FormProducto({
           </button>
         </div>
       </form>
+      {confirmando && producto && (
+        <Confirmar
+          titulo="Eliminar producto"
+          textoAccion="Sí, eliminar"
+          onCerrar={() => setConfirmando(false)}
+          onConfirmar={eliminar}
+        >
+          ¿Eliminar <strong>{producto.nombre}</strong> del catálogo? Esta acción no se puede deshacer.
+        </Confirmar>
+      )}
     </Modal>
   );
 }
@@ -455,12 +490,14 @@ function TarjetaAdmin({
   titulo,
   subtitulo,
   onAbrir,
+  onPrecargar,
   onEditar,
 }: {
   imagen: string | null;
   titulo: string;
   subtitulo: string;
   onAbrir?: () => void;
+  onPrecargar?: () => void;
   onEditar: () => void;
 }) {
   return (
@@ -472,6 +509,8 @@ function TarjetaAdmin({
           type="button"
           className="group block overflow-hidden"
           onClick={onAbrir}
+          onMouseEnter={onPrecargar}
+          onFocus={onPrecargar}
           aria-label={`Abrir ${titulo}`}
         >
           <Foto src={imagen} />
@@ -484,7 +523,7 @@ function TarjetaAdmin({
           <h2 className="truncate font-ui text-[19px] leading-[1.25] font-semibold text-tinto-texto uppercase">
             {titulo}
           </h2>
-          <p className="font-ui text-xs leading-[1.3] font-semibold text-dorado">
+          <p className="font-ui text-xs leading-[1.3] font-semibold text-dorado-texto">
             {subtitulo}
           </p>
         </div>

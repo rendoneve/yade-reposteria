@@ -8,7 +8,6 @@ def crear(db: Session, persona: str, nombre: str, tipo: str) -> Actividad:
     a = Actividad(persona=persona, nombre=nombre[:255], tipo=tipo)
     db.add(a)
     db.commit()
-    db.refresh(a)
     return a
 
 

@@ -3,18 +3,31 @@
 Usamos SQLAlchemy en modo síncrono con el driver pg8000, que es 100 % Python:
 se instala en cualquier versión de Python (incluida la 3.15) sin compilar nada.
 FastAPI ejecuta los endpoints `def` en un hilo aparte, así que no se bloquea.
+
+Cada ida y vuelta a Neon cuesta tiempo de red, así que aquí se evitan las que sobran:
+  * Ping solo si la conexión estuvo ociosa más de PING_SI_OCIOSA segundos (con tráfico normal,
+    ninguno). Antes se hacía en cada petición. `pool_recycle` además descarta las conexiones
+    antes de que Neon suspenda el cómputo (5 min).
+  * Ojo: NO usar autocommit de pg8000 para ahorrar el BEGIN/ROLLBACK. Se probó y con varias
+    peticiones a la vez mezcla las respuestas entre conexiones.
 """
 
+import logging
 import ssl
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import TypeVar
 
-from sqlalchemy import MetaData, create_engine
-from sqlalchemy.exc import InterfaceError, OperationalError
+import pg8000.exceptions
+
+from sqlalchemy import MetaData, create_engine, event
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
+
+log = logging.getLogger("uvicorn.error")
 
 # Cada servicio es dueño de un schema y solo toca sus propias tablas.
 SCHEMA = "actividad"
@@ -37,35 +50,87 @@ def _crear_engine(raw_url: str):
     return create_engine(
         url,
         connect_args=connect_args,
-        pool_pre_ping=True,  # Neon suspende el cómputo por inactividad y corta conexiones
-        pool_recycle=180,
-        pool_size=2,
-        max_overflow=3,
+        pool_pre_ping=False,
+        pool_recycle=240,  # menor que la suspensión por inactividad de Neon (300 s)
+        pool_size=3,
+        max_overflow=5,
+        pool_use_lifo=True,  # reutiliza la conexión más reciente; las ociosas envejecen y se reciclan
     )
 
 
 engine = _crear_engine(settings.database_url)
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
+PING_SI_OCIOSA = 30.0  # segundos
+
+
+@event.listens_for(engine, "connect")
+def _al_conectar(_dbapi_connection, registro):
+    registro.info["usada"] = time.monotonic()
+
+
+@event.listens_for(engine, "checkin")
+def _al_devolver(_dbapi_connection, registro):
+    registro.info["usada"] = time.monotonic()
 
 
 class Base(DeclarativeBase):
     metadata = MetaData(schema=SCHEMA)
 
 
-def get_db() -> Iterator[Session]:
-    session = None
+
+def abrir_sesion() -> Session:
+    """Sesión lista para usar, con una conexión que se sabe viva."""
     for intento in range(2):
+        session = SessionLocal()
         try:
-            session = SessionLocal()
-            session.connection()
-            break
+            conexion = session.connection()
+            if time.monotonic() - conexion.connection.info.get("usada", 0) > PING_SI_OCIOSA:
+                conexion.exec_driver_sql("SELECT 1")  # pudo cortarse mientras estaba ociosa
+            return session
         except (InterfaceError, OperationalError):
-            if session:
-                session.close()
+            session.close()
             engine.dispose()
             if intento:
                 raise
             time.sleep(0.2)
+    raise RuntimeError("inalcanzable")
+
+
+def es_desconexion(exc: BaseException | None) -> bool:
+    """¿El error es porque se cortó la conexión con Neon? Revisa toda la cadena de excepciones
+    (pg8000 a veces la envuelve en InterfaceError y otras deja pasar el BrokenPipe/ConnectionReset)."""
+    vistos = 0
+    while exc is not None and vistos < 10:
+        if isinstance(exc, (InterfaceError, OperationalError, ConnectionError, pg8000.exceptions.InterfaceError)):
+            return True
+        if isinstance(exc, DBAPIError) and exc.connection_invalidated:
+            return True
+        exc = exc.__cause__ or exc.__context__
+        vistos += 1
+    return False
+
+
+T = TypeVar("T")
+
+
+def leer(consulta: Callable[[Session], T]) -> T:
+    """Ejecuta una lectura con su propia sesión. Si Neon cortó la conexión a la mitad, la repite
+    una vez con una conexión nueva: quien hizo la petición ni se entera."""
+    for intento in range(2):
+        try:
+            with abrir_sesion() as db:
+                return consulta(db)
+        except Exception as exc:
+            if intento or not es_desconexion(exc):
+                raise
+            log.warning("Neon cortó la conexión durante una lectura de %s; se reintenta", SCHEMA)
+            engine.dispose()
+            time.sleep(0.2)
+    raise RuntimeError("inalcanzable")
+
+
+def get_db() -> Iterator[Session]:
+    session = abrir_sesion()
     try:
         yield session
     finally:

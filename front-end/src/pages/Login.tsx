@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { useSesion } from '../lib/auth'
+import { useSesion } from '../lib/sesion'
 import { botonOscuro, campoAdmin, controlAdmin, errorAdmin, fondoLogin } from '../lib/estilos'
 import { useNegocio } from '../lib/negocio'
-import { Link } from '../lib/router'
+import Link from '../components/Link'
 
 const controlLogin = `${controlAdmin} px-3 py-2.5 text-base`
 

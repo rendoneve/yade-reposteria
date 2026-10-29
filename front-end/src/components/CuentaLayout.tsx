@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { useSesion } from '../lib/auth'
+import { useSesion } from '../lib/sesion'
 import { degradadoHero, hero, heroLinea, heroTitulo, pagina } from '../lib/estilos'
-import { Link, navegar, useRuta } from '../lib/router'
+import Link from './Link'
+import { navegar, useRuta } from '../lib/router'
 import Encabezado from './Encabezado'
 import Pie from './Pie'
 

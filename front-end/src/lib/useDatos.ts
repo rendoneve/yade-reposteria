@@ -1,23 +1,30 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useSyncExternalStore } from 'react'
+import { cargarEnCache, leerEntrada, suscribir } from './cache'
 
-/* Carga datos de la API y expone { datos, error, cargando, recargar }. */
-export function useDatos<T>(cargar: () => Promise<T>, deps: unknown[] = []) {
-  const [datos, setDatos] = useState<T | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [cargando, setCargando] = useState(true)
-  const [version, setVersion] = useState(0)
+/* Carga datos de la API con caché compartida (ver lib/cache.ts).
 
-  useEffect(() => {
-    let vigente = true
-    setCargando(true)
-    cargar()
-      .then((d) => { if (vigente) { setDatos(d); setError(null) } })
-      .catch((e: Error) => { if (vigente) setError(e.message) })
-      .finally(() => { if (vigente) setCargando(false) })
-    return () => { vigente = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, version])
+   `clave` identifica los datos: la misma clave en dos pantallas son los mismos datos.
+   Debe cambiar cuando cambian los parámetros (p. ej. `productos:categoria:3`).
+   Con `clave = null` no se pide nada.
 
-  const recargar = useCallback(() => setVersion((v) => v + 1), [])
-  return { datos, error, cargando, recargar }
+   Devuelve { datos, error, cargando, actualizando, recargar }:
+   `cargando` solo es true cuando todavía no hay nada que mostrar. */
+export function useDatos<T>(clave: string | null, cargar: () => Promise<T>) {
+  const entrada = useSyncExternalStore(suscribir, () => (clave ? leerEntrada(clave) : undefined))
+  const pedir = useEffectEvent((forzar: boolean) => {
+    if (clave) void cargarEnCache(clave, cargar, forzar)
+  })
+
+  useEffect(() => { pedir(false) }, [clave])
+
+  const recargar = useCallback(() => { if (clave) void cargarEnCache(clave, cargar, true) }, [clave, cargar])
+
+  const datos = entrada?.datos === undefined ? null : (entrada.datos as T)
+  return {
+    datos,
+    error: entrada?.error ?? null,
+    cargando: clave !== null && datos === null && !entrada?.error,
+    actualizando: entrada?.cargando ?? false,
+    recargar,
+  }
 }

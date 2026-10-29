@@ -1,25 +1,36 @@
+import { SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import heroCatalogo from '../assets/img/hero-catalogo.png'
+import heroCatalogo from '../assets/img/hero-catalogo.webp'
+import DetalleProducto from '../components/DetalleProducto'
 import Encabezado from '../components/Encabezado'
-import { Cargando, MensajeError, Vacio } from '../components/Estado'
+import { EsqueletoPostres, MensajeError, Vacio } from '../components/Estado'
 import Pie from '../components/Pie'
 import TarjetaPostre from '../components/TarjetaPostre'
 import {
   api,
   ETIQUETA_DISPONIBILIDAD,
   formatoPrecio,
+  nombreEtiqueta,
   type Categoria,
   type Disponibilidad,
   type Etiqueta,
   type Producto,
 } from '../lib/api'
-import { chipFiltro, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
+import { precargar } from '../lib/cache'
+import { chipFiltro, enlaceDorado, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
 import { navegar, useRuta } from '../lib/router'
 import { useDatos } from '../lib/useDatos'
 
 const DISPONIBILIDADES: Disponibilidad[] = ['bajo pedido', 'stock', 'proximamente']
 const porId = <T extends { id: number }>(lista: T[]) => [...lista].sort((a, b) => a.id - b.id)
-const capitalizar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+// En el orden en que se crearon (así las acomoda el administrador)
+const cargarCategorias = () => api<Categoria[]>('/categorias').then(porId)
+const cargarEtiquetas = () => api<Etiqueta[]>('/etiquetas').then(porId)
+const claveProductos = (id: number) => `productos:categoria:${id}`
+const cargarProductos = (id: number) => () =>
+  api<Producto[]>('/productos', { params: { categoria_id: id, limit: 500 } })
 
 const linea = 'mt-[26px] mb-3.5 w-full border-t border-tinto-oscuro/30'
 const subtitulo = 'mb-2 font-titulo text-[25px] leading-[1.2] font-bold text-tinto-texto capitalize'
@@ -33,21 +44,22 @@ const casilla =
 /* PRODUCTOS (Figma 20:2) */
 export default function Catalogo() {
   const { query } = useRuta()
-  // En el orden en que se crearon (así las acomoda el administrador)
-  const categorias = useDatos(() => api<Categoria[]>('/categorias').then(porId))
-  const etiquetas = useDatos(() => api<Etiqueta[]>('/etiquetas').then(porId))
+  const categorias = useDatos('categorias', cargarCategorias)
+  const etiquetas = useDatos('etiquetas', cargarEtiquetas)
 
   const idEnUrl = Number(query.get('categoria')) || null
   const seleccionada =
     categorias.datos?.find((c) => c.id === idEnUrl) ?? categorias.datos?.[0] ?? null
-
+  // Si la URL ya dice qué categoría, sus productos se piden junto con las categorías (no después)
+  // (cuando ya llegaron las categorías manda la elegida, por si la de la URL ya no existe)
+  const idProductos = categorias.datos ? (seleccionada?.id ?? null) : idEnUrl
   const productos = useDatos(
-    () =>
-      seleccionada
-        ? api<Producto[]>('/productos', { params: { categoria_id: seleccionada.id, limit: 500 } })
-        : Promise.resolve([] as Producto[]),
-    [seleccionada?.id],
+    idProductos ? claveProductos(idProductos) : null,
+    cargarProductos(idProductos ?? 0),
   )
+  const [viendo, setViendo] = useState<Producto | null>(null)
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
   const precioMaximo = useMemo(() => {
     const max = Math.max(0, ...(productos.datos ?? []).map((p) => Number(p.precio)))
@@ -59,46 +71,55 @@ export default function Catalogo() {
   const [tags, setTags] = useState<string[]>([])
   const [min, max] = rango ?? [0, precioMaximo]
 
+  const texto = sinAcentos(busqueda.trim())
   const filtrados = (productos.datos ?? []).filter((p) => {
     const precio = Number(p.precio)
     if (precio < min || precio > max) return false
     if (disp.length && !disp.includes(p.disponibilidad)) return false
     if (tags.length && !p.etiquetas.some((e) => tags.includes(e))) return false
+    if (texto && !sinAcentos(`${p.nombre} ${p.descripcion}`).includes(texto)) return false
     return true
   })
+  const cantidadFiltros = disp.length + tags.length + (rango ? 1 : 0) + (texto ? 1 : 0)
+  const limpiarFiltros = () => { setRango(null); setDisp([]); setTags([]); setBusqueda('') }
 
   const alternar = <T,>(lista: T[], valor: T) =>
     lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor]
 
   const elegirCategoria = (c: Categoria) => {
     setRango(null)
+    setFiltrosAbiertos(false)
     navegar(`/catalogo?categoria=${c.id}`, true)
   }
+  const precargarCategoria = (c: Categoria) => precargar(claveProductos(c.id), cargarProductos(c.id))
 
   return (
     <div className={pagina}>
       <section className={`${hero} h-[480px] overflow-hidden bg-[linear-gradient(180deg,rgba(155,61,79,0)_-17.8%,#300e15_100%)]`}>
         <Encabezado />
-        <p className="absolute top-[136px] left-margen font-ui text-[17px] leading-[1.2] font-semibold text-white max-[760px]:static max-[760px]:mb-2.5">Nuestro Catalogo</p>
+        <p className="absolute top-[136px] left-margen font-ui text-[17px] leading-[1.2] font-semibold text-white max-[760px]:static max-[760px]:mb-2.5">Nuestro catálogo</p>
         <h1 className={`${heroTitulo} top-[140px] h-[240px]`}>
           <span className={heroLineaChica}>POSTRES QUE HACEN</span>
-          <span className={heroLinea}>LA VIDA MAS DULCE</span>
+          <span className={heroLinea}>LA VIDA MÁS DULCE</span>
         </h1>
-        <img className="pointer-events-none absolute top-[92px] left-[calc(50%+60px)] h-auto w-[612px] max-w-none max-[1280px]:top-[110px] max-[1280px]:-right-5 max-[1280px]:left-auto max-[1280px]:w-[520px] max-[1000px]:top-[150px] max-[1000px]:w-[420px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroCatalogo} width={873} height={675} alt="" />
+        <img fetchPriority="high" className="pointer-events-none absolute top-[92px] left-[calc(50%+60px)] h-auto w-[612px] max-w-none max-[1280px]:top-[110px] max-[1280px]:-right-5 max-[1280px]:left-auto max-[1280px]:w-[520px] max-[1000px]:top-[150px] max-[1000px]:w-[420px] max-[760px]:static max-[760px]:mx-auto max-[760px]:mt-5 max-[760px]:w-full max-[760px]:max-w-[360px]" src={heroCatalogo} width={873} height={675} alt="" />
       </section>
 
       <div className="flex flex-1 items-stretch max-[760px]:flex-col">
-        <aside className="relative z-1 w-[290px] flex-none bg-beige pt-14 pr-[26px] pb-[60px] pl-[30px] shadow-[4px_-4px_18px_rgba(0,0,0,0.18)] max-[1000px]:w-[250px] max-[1000px]:pl-5 max-[760px]:w-full max-[760px]:px-5 max-[760px]:py-7 max-[760px]:shadow-none" aria-label="Filtros">
-          <h2 className="mb-3 pl-[26px] font-titulo text-[34px] leading-[1.2] font-bold">Categorias</h2>
+        <aside className="relative z-1 w-[290px] flex-none bg-beige pt-14 pr-[26px] pb-[60px] pl-[30px] shadow-[4px_-4px_18px_rgba(0,0,0,0.18)] max-[1000px]:w-[250px] max-[1000px]:pl-5 max-[760px]:w-full max-[760px]:px-5 max-[760px]:py-5 max-[760px]:shadow-none" aria-label="Filtros">
+          <h2 className="mb-3 pl-[26px] font-titulo text-[34px] leading-[1.2] font-bold max-[760px]:pl-0 max-[760px]:text-[28px]">Categorías</h2>
           {categorias.error && <MensajeError texto={categorias.error} reintentar={categorias.recargar} />}
-          <ul className="flex flex-col gap-1.5">
+          {/* En celular las categorías van en una fila deslizable; los demás filtros se despliegan con el botón */}
+          <ul className="flex flex-col gap-1.5 max-[760px]:-mx-5 max-[760px]:flex-row max-[760px]:overflow-x-auto max-[760px]:px-5 max-[760px]:pb-1">
             {categorias.datos?.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
-                  className="h-12 w-full rounded-lg bg-beige px-3.5 text-left font-titulo text-[28px] leading-none font-bold text-tinto capitalize transition-colors hover:bg-tinto/10 aria-pressed:bg-tinto aria-pressed:text-beige max-[1000px]:text-2xl"
+                  className="h-12 w-full rounded-lg bg-beige px-3.5 text-left font-titulo text-[28px] leading-none font-bold text-tinto capitalize transition-colors hover:bg-tinto/10 aria-pressed:bg-tinto aria-pressed:text-beige max-[1000px]:text-2xl max-[760px]:h-10 max-[760px]:w-auto max-[760px]:whitespace-nowrap max-[760px]:border max-[760px]:border-tinto/30 max-[760px]:text-xl"
                   aria-pressed={c.id === seleccionada?.id}
                   onClick={() => elegirCategoria(c)}
+                  onMouseEnter={() => precargarCategoria(c)}
+                  onFocus={() => precargarCategoria(c)}
                 >
                   {c.nombre}
                 </button>
@@ -106,6 +127,18 @@ export default function Catalogo() {
             ))}
           </ul>
 
+          <button
+            type="button"
+            className="mt-4 hidden h-10 w-full items-center justify-center gap-2 rounded-lg border border-tinto bg-white/50 font-ui text-[15px] font-semibold text-tinto max-[760px]:flex"
+            aria-expanded={filtrosAbiertos}
+            aria-controls="filtros-catalogo"
+            onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}
+          >
+            <SlidersHorizontal size={18} aria-hidden="true" />
+            {filtrosAbiertos ? 'Ocultar filtros' : 'Filtros'}{cantidadFiltros > 0 && ` (${cantidadFiltros})`}
+          </button>
+
+          <div id="filtros-catalogo" className={filtrosAbiertos ? '' : 'max-[760px]:hidden'}>
           <hr className={linea} />
           <h3 className={subtitulo}>Precio</h3>
           <div className="relative mt-[18px] mb-2 h-5 w-full">
@@ -155,27 +188,48 @@ export default function Catalogo() {
                 aria-pressed={tags.includes(e.nombre)}
                 onClick={() => setTags(alternar(tags, e.nombre))}
               >
-                {capitalizar(e.nombre)}
+                {nombreEtiqueta(e.nombre)}
               </button>
             ))}
           </div>
           <hr className={linea} />
+          </div>
         </aside>
 
         <main className="flex-1 pt-9 pr-8 pb-[100px] pl-9 max-[760px]:px-4 max-[760px]:pt-7 max-[760px]:pb-[72px]">
-          <h2 className="mb-[30px] font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-6 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Catálogo'}</h2>
-          {(categorias.cargando || productos.cargando) && <Cargando />}
+          <h2 className="mb-5 font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-4 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Catálogo'}</h2>
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <input
+              type="search"
+              className="h-10 w-[300px] rounded-[20px] border border-rosa-vino bg-white px-4 font-texto text-[15px] max-[760px]:w-full"
+              placeholder="Buscar postre…"
+              aria-label="Buscar postre por nombre o descripción"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+            {productos.datos && (
+              <p className="font-texto text-[15px] text-texto-secundario" role="status">
+                {filtrados.length} {filtrados.length === 1 ? 'postre' : 'postres'}
+              </p>
+            )}
+            {cantidadFiltros > 0 && (
+              <button type="button" className={`${enlaceDorado} text-[15px]`} onClick={limpiarFiltros}>Limpiar filtros</button>
+            )}
+          </div>
           {productos.error && <MensajeError texto={productos.error} reintentar={productos.recargar} />}
           {categorias.datos?.length === 0 && <Vacio texto="Todavía no hay categorías." />}
-          {!productos.cargando && productos.datos && filtrados.length === 0 && seleccionada && (
+          {productos.datos && productos.datos.length === 0 && <Vacio texto="Esta categoría todavía no tiene postres." />}
+          {productos.datos && productos.datos.length > 0 && filtrados.length === 0 && (
             <Vacio texto="No hay postres con esos filtros." />
           )}
           <div className="grid grid-cols-[repeat(auto-fill,260px)] gap-x-5 gap-y-[22px] max-[760px]:justify-center">
-            {filtrados.map((p) => <TarjetaPostre key={p.id} producto={p} />)}
+            {(categorias.cargando || productos.cargando) && <EsqueletoPostres cantidad={6} />}
+            {filtrados.map((p) => <TarjetaPostre key={p.id} producto={p} onVer={setViendo} />)}
           </div>
         </main>
       </div>
       <Pie />
+      {viendo && <DetalleProducto producto={viendo} onCerrar={() => setViendo(null)} />}
     </div>
   )
 }

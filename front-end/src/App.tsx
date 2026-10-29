@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react'
+import Avisos from './components/Avisos'
 import { Cargando } from './components/Estado'
-import { ProveedorSesion, useSesion } from './lib/auth'
+import { ProveedorSesion } from './lib/auth'
 import { fondoLogin } from './lib/estilos'
-import { ProveedorNegocio } from './lib/negocio'
-import { useRuta } from './lib/router'
+import { useNegocio } from './lib/negocio'
+import { useRuta, useTitulo } from './lib/router'
+import { useSesion } from './lib/sesion'
 const AcercaDe = lazy(() => import('./pages/AcercaDe'))
 const AgendarCita = lazy(() => import('./pages/AgendarCita'))
 const Catalogo = lazy(() => import('./pages/Catalogo'))
@@ -19,21 +21,40 @@ const Configuracion = lazy(() => import('./pages/admin/Configuracion'))
 const Panel = lazy(() => import('./pages/admin/Panel'))
 const Productos = lazy(() => import('./pages/admin/Productos'))
 const Proximamente = lazy(() => import('./pages/admin/Proximamente'))
+const ResenasAdmin = lazy(() => import('./pages/admin/Resenas'))
+
+// Título de la pestaña por pantalla (null = solo el nombre del negocio)
+const TITULOS: [prefijo: string, titulo: string | null][] = [
+  ['/admin/productos', 'Productos · Panel'],
+  ['/admin/citas', 'Citas · Panel'],
+  ['/admin/resenas', 'Reseñas · Panel'],
+  ['/admin/configuracion', 'Configuración · Panel'],
+  ['/admin', 'Panel'],
+  ['/cuenta/citas', 'Mis citas'],
+  ['/cuenta/resenas', 'Mis reseñas'],
+  ['/cuenta', 'Mi cuenta'],
+  ['/catalogo', 'Menú'],
+  ['/acerca-de', 'Acerca de'],
+  ['/agendar', 'Agendar cita'],
+  ['/entrar', 'Entrar'],
+  ['/registro', 'Crear cuenta'],
+]
 
 export default function App() {
   return (
     <ProveedorSesion>
-      <ProveedorNegocio>
-        <Suspense fallback={<div className={fondoLogin}><Cargando /></div>}>
-          <Rutas />
-        </Suspense>
-      </ProveedorNegocio>
+      <Suspense fallback={<div className={fondoLogin}><Cargando /></div>}>
+        <Rutas />
+      </Suspense>
+      <Avisos />
     </ProveedorSesion>
   )
 }
 
 function Rutas() {
   const { path } = useRuta()
+  const { nombre } = useNegocio()
+  useTitulo(TITULOS.find(([p]) => path.startsWith(p))?.[1] ?? null, nombre)
   if (path.startsWith('/admin')) return <RutasAdmin path={path} />
   if (path.startsWith('/cuenta')) return <RutasCuenta path={path} />
   switch (path) {
@@ -67,7 +88,7 @@ function RutasAdmin({ path }: { path: string }) {
   switch (path) {
     case '/admin/citas': return <Citas />
     case '/admin/paquetes': return <Proximamente titulo="Paquetes" />
-    case '/admin/resenas': return <Proximamente titulo="Reseñas" />
+    case '/admin/resenas': return <ResenasAdmin />
     case '/admin/configuracion': return <Configuracion />
     default: return <Panel />
   }

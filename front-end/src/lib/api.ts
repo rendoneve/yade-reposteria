@@ -1,4 +1,5 @@
 /* Cliente de la API: todo pasa por el gateway (http://localhost:8000/api). */
+import { marcarViejo } from './cache'
 
 // En desarrollo el gateway corre en localhost; en producción, por defecto, comparte origen.
 // Se puede sobrescribir explícitamente con VITE_API_URL en cualquier entorno.
@@ -39,7 +40,19 @@ type Opciones = {
   params?: Record<string, string | number | undefined | null>
 }
 
-export async function api<T>(ruta: string, { method = 'GET', body, params }: Opciones = {}): Promise<T> {
+/* Respuesta con el total de registros (header X-Total-Count), para paginar. */
+export type Pagina<T> = { items: T; total: number }
+
+export async function api<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+  return (await peticion<T>(ruta, opciones)).items
+}
+
+/* Igual que api(), pero también devuelve el total que manda el servidor en X-Total-Count. */
+export function apiPaginada<T>(ruta: string, opciones: Opciones = {}): Promise<Pagina<T>> {
+  return peticion<T>(ruta, opciones)
+}
+
+async function peticion<T>(ruta: string, { method = 'GET', body, params }: Opciones = {}): Promise<Pagina<T>> {
   const url = new URL(API_URL + ruta, window.location.origin)
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v))
@@ -96,10 +109,13 @@ export async function api<T>(ruta: string, { method = 'GET', body, params }: Opc
     guardarToken(null)
     window.dispatchEvent(new Event('sesion-expirada'))
   }
-  if (r.status === 204) return undefined as T
+  // Un cambio guardado puede afectar cualquier lista: todo lo guardado en caché se vuelve a pedir
+  if (r.ok && method !== 'GET') marcarViejo()
+  const total = Number(r.headers.get('X-Total-Count') ?? NaN)
+  if (r.status === 204) return { items: undefined as T, total: 0 }
   const datos = await r.json().catch(() => null)
   if (!r.ok) throw new ErrorApi(r.status, mensajeDeError(datos) ?? `Error ${r.status}`)
-  return datos as T
+  return { items: datos as T, total: Number.isNaN(total) ? (Array.isArray(datos) ? datos.length : 0) : total }
 }
 
 function mensajeDeError(datos: unknown): string | null {
@@ -123,10 +139,33 @@ function mensajeDeError(datos: unknown): string | null {
 export const TIPOS_IMAGEN = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 export const MAX_BYTES_IMAGEN = 5 * 1024 * 1024
 
+/* Reduce la foto en el navegador antes de subirla: las cámaras dan 3-5 MB y en el sitio se
+   muestran a 260-600 px. Se convierte a WebP de máximo LADO_MAXIMO px (suele quedar en 100-300 KB).
+   Los GIF se dejan igual (perderían la animación) y si el resultado no es más ligero se usa el original. */
+const LADO_MAXIMO = 1600
+
+export async function comprimirImagen(archivo: File): Promise<File> {
+  if (archivo.type === 'image/gif' || typeof createImageBitmap !== 'function') return archivo
+  try {
+    const bitmap = await createImageBitmap(archivo)
+    const escala = Math.min(1, LADO_MAXIMO / Math.max(bitmap.width, bitmap.height))
+    const lienzo = document.createElement('canvas')
+    lienzo.width = Math.round(bitmap.width * escala)
+    lienzo.height = Math.round(bitmap.height * escala)
+    lienzo.getContext('2d')?.drawImage(bitmap, 0, 0, lienzo.width, lienzo.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((listo) => lienzo.toBlob(listo, 'image/webp', 0.85))
+    if (!blob || blob.type !== 'image/webp' || blob.size >= archivo.size) return archivo
+    return new File([blob], archivo.name.replace(/\.\w+$/, '') + '.webp', { type: 'image/webp' })
+  } catch {
+    return archivo // el formato no se pudo leer aquí (p. ej. AVIF en un navegador viejo): se sube tal cual
+  }
+}
+
 /* Sube la imagen al bucket (POST /api/imagenes, servicio-catalogo) y devuelve su URL pública. */
 export async function subirImagen(archivo: File): Promise<string> {
   const datos = new FormData()
-  datos.append('archivo', archivo)
+  datos.append('archivo', await comprimirImagen(archivo))
   const { url } = await api<{ url: string }>('/imagenes', { method: 'POST', body: datos })
   return url
 }
@@ -165,6 +204,8 @@ export type Categoria = {
 }
 
 export type Etiqueta = { id: number; nombre: string }
+
+export type ProductoOpcion = { id: number; nombre: string; categoria_nombre: string }
 
 export type Producto = {
   id: number
@@ -217,6 +258,17 @@ export type Negocio = {
   horarios: Horario[]
 }
 
+/* Horas que se pueden agendar un día (GET /citas/disponibilidad). */
+export type AgendaDia = {
+  fecha: string
+  configurado: boolean // false: el negocio no ha puesto horarios; se deja escoger cualquier hora
+  abierto: boolean
+  abre: string | null
+  cierra: string | null
+  duracion_minutos: number
+  franjas: { inicio: string; disponible: boolean }[]
+}
+
 export type Actividad = { id: number; fecha: string; persona: string; nombre: string; tipo: string }
 
 export type Estadisticas = {
@@ -253,6 +305,14 @@ export const ETIQUETA_SERVICIO: Record<string, string> = {
   pasteles: 'Pasteles',
 }
 export const etiquetaServicio = (tipo: string) => ETIQUETA_SERVICIO[tipo] ?? tipo
+
+// Las etiquetas se guardan en minúsculas y sin acentos ("mas vendidos"); así se muestran
+const NOMBRE_ETIQUETA: Record<string, string> = {
+  'mas vendidos': 'Más vendidos',
+  'sin azucar': 'Sin azúcar',
+}
+export const nombreEtiqueta = (nombre: string) =>
+  NOMBRE_ETIQUETA[nombre] ?? nombre.charAt(0).toUpperCase() + nombre.slice(1)
 
 export const ETIQUETA_DISPONIBILIDAD: Record<Disponibilidad, string> = {
   'bajo pedido': 'Bajo pedido',

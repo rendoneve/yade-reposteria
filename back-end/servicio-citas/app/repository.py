@@ -1,13 +1,13 @@
-from datetime import UTC, date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.orm import Session, lazyload
 
+from app.core.agenda import DURACION, ZONA
 from app.models import Cita
 
-# Hora local del negocio, para interpretar filtros por día (?desde=2026-11-01)
-ZONA = ZoneInfo("America/Mazatlan")
+# Las citas que ocupan su horario (las canceladas y terminadas lo liberan)
+ACTIVAS = ("proximo", "en proceso")
 
 
 def _inicio_dia(d: date) -> datetime:
@@ -23,7 +23,10 @@ def listar(
     q: str | None = None,
     limit: int = 100,
     offset: int = 0,
-) -> list[Cita]:
+) -> tuple[list[Cita], int]:
+    """Devuelve (página de citas, total con esos filtros).
+
+    Orden: primero las que vienen (la más cercana arriba) y después las pasadas (la más reciente arriba)."""
     stmt = select(Cita)
     if estado:
         stmt = stmt.where(Cita.estado == estado)
@@ -38,8 +41,12 @@ def listar(
         stmt = stmt.where(
             or_(Cita.nombre_cliente.ilike(patron), Cita.telefono.ilike(patron), Cita.correo.ilike(patron))
         )
-    stmt = stmt.order_by(Cita.fecha, Cita.id).limit(limit).offset(offset)
-    return list(db.scalars(stmt))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    pasada = Cita.fecha < func.now()
+    stmt = stmt.order_by(
+        pasada, case((pasada, None), else_=Cita.fecha).asc(), Cita.fecha.desc(), Cita.id
+    ).limit(limit).offset(offset)
+    return list(db.scalars(stmt)), total
 
 
 def contar_proximas(db: Session) -> int:
@@ -54,23 +61,38 @@ def contar_terminadas(db: Session) -> int:
 
 
 def resumen_admin(db: Session) -> dict:
-    """Datos que el panel necesita; resuelve los dos conteos y las siguientes citas en una visita HTTP."""
-    ahora = datetime.now(UTC)
+    """Datos del panel: los dos conteos en una sola consulta (FILTER) y las siguientes 3 citas."""
+    proximas, terminadas = db.execute(
+        select(
+            func.count().filter(Cita.estado == "proximo", Cita.fecha >= func.now()),
+            func.count().filter(Cita.estado == "terminado"),
+        )
+    ).one()
     siguientes = list(db.scalars(
         select(Cita)
         .options(lazyload(Cita.productos))
-        .where(Cita.estado == "proximo", Cita.fecha >= ahora)
+        .where(Cita.estado == "proximo", Cita.fecha >= func.now())
         .order_by(Cita.fecha, Cita.id)
         .limit(3)
     ))
-    return {
-        "citas_proximas": contar_proximas(db),
-        "citas_terminadas": contar_terminadas(db),
-        "siguientes": siguientes,
-    }
+    return {"citas_proximas": proximas, "citas_terminadas": terminadas, "siguientes": siguientes}
 
 
 def listar_de_usuario(db: Session, usuario_id: int) -> list[Cita]:
     """Citas de un cliente, las más recientes primero."""
     stmt = select(Cita).where(Cita.usuario_id == usuario_id).order_by(Cita.fecha.desc(), Cita.id.desc())
     return list(db.scalars(stmt))
+
+
+def fechas_ocupadas(db: Session, desde: datetime, hasta: datetime) -> list[datetime]:
+    """Inicio de las citas activas que pueden encimarse con el rango [desde, hasta)."""
+    stmt = select(Cita.fecha).where(
+        Cita.estado.in_(ACTIVAS), Cita.fecha > desde - DURACION, Cita.fecha < hasta
+    )
+    return list(db.scalars(stmt))
+
+
+def bloquear_agenda(db: Session) -> None:
+    """Candado de la transacción: dos personas no pueden apartar la misma hora al mismo tiempo.
+    Se libera solo con el commit/rollback."""
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext('citas.agenda'))"))

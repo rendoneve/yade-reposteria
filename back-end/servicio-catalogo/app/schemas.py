@@ -78,6 +78,14 @@ class ProductoOut(BaseModel):
         return [e.nombre if hasattr(e, "nombre") else e for e in v]
 
 
+class ProductoOpcionOut(BaseModel):
+    """Versión ligera para selects (sin descripción, imagen ni etiquetas)."""
+
+    id: int
+    nombre: str
+    categoria_nombre: str
+
+
 class ConteoOut(BaseModel):
     total: int
 

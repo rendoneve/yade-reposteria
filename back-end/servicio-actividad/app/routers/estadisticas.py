@@ -1,11 +1,10 @@
 import asyncio
-import time
+
 from fastapi import APIRouter, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.exc import InterfaceError, OperationalError
 from app import repository as repo
 from app.clients import servicios
-from app.core.database import SessionLocal, engine
+from app.core.database import leer
 from app.core.security import Admin
 from app.schemas import ActividadOut, EstadisticasOut
 
@@ -13,15 +12,7 @@ router = APIRouter(prefix="/estadisticas", tags=["Estadísticas"])
 
 
 def _listar_actividad_con_reintento(recientes: int):
-    for intento in range(2):
-        try:
-            with SessionLocal() as db:
-                return repo.listar(db, None, None, recientes, 0)
-        except (InterfaceError, OperationalError):
-            engine.dispose()
-            if intento:
-                raise
-            time.sleep(0.2)
+    return leer(lambda db: repo.listar(db, None, None, recientes, 0))
 
 
 @router.get("", response_model=EstadisticasOut)

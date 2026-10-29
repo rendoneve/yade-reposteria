@@ -4,9 +4,12 @@ import { Cargando, MensajeError, Vacio } from '../../components/Estado'
 import TarjetaCita from '../../components/TarjetaCita'
 import { api, formatoDia, formatoFecha, type Cita, type Resena } from '../../lib/api'
 import { botonPildora, campoPublico, chipProducto, controlPublico, errorPublico, tarjetaCrema } from '../../lib/estilos'
+import { avisar } from '../../lib/avisos'
 import { useRuta } from '../../lib/router'
 import { useDatos } from '../../lib/useDatos'
 
+const cargarMisCitas = () => api<Cita[]>('/citas/mias')
+const cargarMisResenas = () => api<Resena[]>('/resenas/mias')
 const subtitulo = 'mb-3.5 font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto'
 
 /* Panel del cliente: reseñas. Solo se pueden reseñar las citas terminadas, una vez cada una;
@@ -14,8 +17,9 @@ const subtitulo = 'mb-3.5 font-titulo text-[30px] leading-[1.1] font-bold text-t
 export default function MisResenas() {
   const { query } = useRuta()
   const citaElegida = Number(query.get('cita')) || null
-  const citas = useDatos(() => api<Cita[]>('/citas/mias'))
-  const resenas = useDatos(() => api<Resena[]>('/resenas/mias'))
+  // Las dos pantallas de la cuenta usan las mismas claves: al pasar de una a otra no se vuelve a esperar
+  const citas = useDatos('citas:mias', cargarMisCitas)
+  const resenas = useDatos('resenas:mias', cargarMisResenas)
 
   const conResena = new Set(resenas.datos?.map((r) => r.cita_id))
   const pendientes = resenas.datos
@@ -53,7 +57,7 @@ export default function MisResenas() {
                 const fecha = r.cita_id ? fechaCita.get(r.cita_id) : undefined
                 return (
                   <article key={r.id} className={`${tarjetaCrema} flex flex-col gap-2.5 px-7 py-5 max-[560px]:px-5`}>
-                    <p className="font-ui text-[13px] font-semibold text-dorado">
+                    <p className="font-ui text-[13px] font-semibold text-dorado-texto">
                       {formatoDia(r.fecha)}{fecha && ` · Cita del ${formatoFecha(fecha)}`}
                     </p>
                     {r.productos.length > 0 && (
@@ -87,6 +91,7 @@ function FormResena({ cita, enfocar, onPublicada }: { cita: Cita; enfocar: boole
         method: 'POST',
         body: { cita_id: cita.id, descripcion: String(f.get('descripcion')).trim() },
       })
+      avisar('¡Gracias! Tu reseña quedó publicada')
       onPublicada()
     } catch (err) {
       setError((err as Error).message)

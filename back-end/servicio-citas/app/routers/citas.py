@@ -1,14 +1,16 @@
-from datetime import UTC, date, datetime
 import time
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import InterfaceError, OperationalError
+from sqlalchemy.orm import Session
 
 from app import repository as repo
+from app.core import agenda, negocio
 from app.core.actividad import registrar_actividad
 from app.core.catalogo import nombres_de_productos
+from app.core.config import settings
 from app.core.database import engine, get_db
 from app.core.security import Admin, UsuarioActual, UsuarioOpcional, require_internal_key
 from app.models import Cita, CitaProducto
@@ -21,6 +23,8 @@ from app.schemas import (
     CitaPublicaOut,
     CitaUpdate,
     ConteoOut,
+    DisponibilidadOut,
+    FranjaOut,
     Estado,
     EstadoIn,
 )
@@ -43,6 +47,25 @@ def _validar_futura(fecha: datetime) -> None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "La fecha de la cita ya pasó")
 
 
+def _validar_agenda(db: Session, fecha: datetime) -> None:
+    """La cita debe caer en el horario del negocio y no encimarse con otras.
+    Se llama dentro de la transacción que guarda la cita, con el candado de la agenda tomado."""
+    if fecha > datetime.now(UTC) + timedelta(days=settings.dias_maximos_agenda):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Solo se puede agendar con hasta {settings.dias_maximos_agenda} días de anticipación",
+        )
+    horarios = negocio.horarios()
+    if horarios is not None and (motivo := agenda.fuera_de_horario(fecha, horarios)):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, motivo)
+    repo.bloquear_agenda(db)
+    ocupadas = repo.fechas_ocupadas(db, fecha, fecha + agenda.DURACION)
+    if sum(agenda.se_enciman(fecha, o) for o in ocupadas) >= settings.citas_simultaneas:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Esa hora ya está ocupada. Elige otra hora disponible."
+        )
+
+
 def _productos(ids: list[int]) -> list[CitaProducto]:
     """Valida los productos en servicio-catalogo y guarda su nombre (sin repetir ids)."""
     ids = list(dict.fromkeys(ids))
@@ -58,19 +81,51 @@ def agendar_cita(datos: CitaIn, db: DB, tareas: BackgroundTasks, usuario: Usuari
     """El cliente agenda una cita desde el sitio. Siempre queda en estado 'proximo'.
     Si tiene sesión iniciada, la cita queda en su cuenta."""
     _validar_futura(datos.fecha)
+    productos = _productos(datos.producto_ids)  # antes del candado: es una llamada HTTP
+    _validar_agenda(db, datos.fecha)
     cita = Cita(
         **datos.model_dump(exclude={"producto_ids"}),
         estado="proximo",
         usuario_id=usuario.id if usuario else None,
-        productos=_productos(datos.producto_ids),
+        productos=productos,
     )
     db.add(cita)
     db.commit()
-    db.refresh(cita)
     tareas.add_task(
         registrar_actividad, "Sitio web", f"Nueva cita de {cita.nombre_cliente}", "nuevo"
     )
     return cita
+
+
+@router.get("/disponibilidad", response_model=DisponibilidadOut)
+def disponibilidad(db: DB, fecha: date = Query(description="Día a consultar (hora local del negocio)")):
+    """Horas en que se puede agendar ese día, según el horario del negocio y las citas ya apartadas."""
+    base = DisponibilidadOut(
+        fecha=fecha, configurado=False, abierto=True, duracion_minutos=settings.duracion_cita_minutos
+    )
+    horarios = negocio.horarios()
+    if horarios is None:
+        return base
+    base.configurado = True
+    horario = horarios.get(agenda.dia_semana(fecha))
+    if horario is None:
+        base.abierto = False
+        return base
+    base.abre, base.cierra = horario
+    inicios = agenda.franjas(fecha, horario)
+    if not inicios:
+        return base
+    ocupadas = repo.fechas_ocupadas(db, inicios[0], inicios[-1] + agenda.DURACION)
+    ahora = datetime.now(UTC)
+    base.franjas = [
+        FranjaOut(
+            inicio=inicio,
+            disponible=inicio > ahora
+            and sum(agenda.se_enciman(inicio, o) for o in ocupadas) < settings.citas_simultaneas,
+        )
+        for inicio in inicios
+    ]
+    return base
 
 
 # ---------- Cliente con cuenta (van antes de /{cita_id}) ----------
@@ -90,7 +145,6 @@ def cancelar_mi_cita(cita_id: int, usuario: UsuarioActual, db: DB, tareas: Backg
         raise HTTPException(status.HTTP_409_CONFLICT, "La fecha de la cita ya pasó: no se puede cancelar")
     cita.estado = "cancelado"
     db.commit()
-    db.refresh(cita)
     tareas.add_task(
         registrar_actividad, usuario.username, f"{cita.nombre_cliente} canceló su cita", "modificacion"
     )
@@ -114,6 +168,7 @@ def cita_interna(cita_id: int, db: DB):
 def listar_citas(
     admin: Admin,
     db: DB,
+    response: Response,
     estado: Estado | None = None,
     tipo_servicio: str | None = None,
     desde: date | None = Query(default=None, description="Día inicial (incluido)"),
@@ -122,7 +177,9 @@ def listar_citas(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    return repo.listar(db, estado, tipo_servicio, desde, hasta, q, limit, offset)
+    citas, total = repo.listar(db, estado, tipo_servicio, desde, hasta, q, limit, offset)
+    response.headers["X-Total-Count"] = str(total)  # para paginar en el panel
+    return citas
 
 
 # Contratos que usa servicio-actividad para el panel. Van antes de /{cita_id}.
@@ -158,7 +215,6 @@ def capturar_cita(datos: CitaAdminIn, admin: Admin, db: DB, tareas: BackgroundTa
     cita = Cita(**datos.model_dump(exclude={"producto_ids"}), productos=_productos(datos.producto_ids))
     db.add(cita)
     db.commit()
-    db.refresh(cita)
     tareas.add_task(
         registrar_actividad, admin.username, f"Nueva cita de {cita.nombre_cliente}", "nuevo"
     )
@@ -179,7 +235,6 @@ def editar_cita(cita_id: int, datos: CitaUpdate, admin: Admin, db: DB, tareas: B
     for campo, valor in cambios.items():
         setattr(cita, campo, valor)
     db.commit()
-    db.refresh(cita)
     tareas.add_task(
         registrar_actividad,
         admin.username,
@@ -195,7 +250,6 @@ def cambiar_estado(cita_id: int, datos: EstadoIn, admin: Admin, db: DB, tareas: 
     anterior = cita.estado
     cita.estado = datos.estado
     db.commit()
-    db.refresh(cita)
     tareas.add_task(
         registrar_actividad,
         admin.username,

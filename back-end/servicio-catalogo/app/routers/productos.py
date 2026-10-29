@@ -4,11 +4,19 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy.orm import Session
 
 from app import repository as repo
+from app.core import cache
 from app.core.actividad import registrar_actividad
-from app.core.database import get_db
+from app.core.database import get_db, leer
 from app.core.security import Admin
 from app.models import Categoria, Etiqueta, Producto
-from app.schemas import ConteoOut, Disponibilidad, ProductoIn, ProductoOut, ProductoUpdate
+from app.schemas import (
+    ConteoOut,
+    Disponibilidad,
+    ProductoIn,
+    ProductoOpcionOut,
+    ProductoOut,
+    ProductoUpdate,
+)
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
 DB = Annotated[Session, Depends(get_db)]
@@ -27,9 +35,11 @@ def _obtener_o_404(db: Session, producto_id: int) -> Producto:
     return p
 
 
-def _validar_categoria(db: Session, categoria_id: int) -> None:
-    if not db.get(Categoria, categoria_id):
+def _validar_categoria(db: Session, categoria_id: int) -> Categoria:
+    categoria = db.get(Categoria, categoria_id)
+    if not categoria:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "La categoría no existe")
+    return categoria
 
 
 def _resolver_etiquetas(db: Session, nombres: list[str]) -> list[Etiqueta]:
@@ -40,12 +50,13 @@ def _resolver_etiquetas(db: Session, nombres: list[str]) -> list[Etiqueta]:
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"Etiqueta(s) no válidas: {', '.join(faltan)}. Usa: {validas}",
         )
-    return encontradas
+    return sorted(encontradas, key=lambda e: e.nombre)
 
 
+# Las listas públicas sin búsqueda se sirven desde la caché (no usan Depends(get_db):
+# solo abren sesión cuando la caché está vacía). leer() repite la consulta si Neon cortó la conexión.
 @router.get("", response_model=list[ProductoOut])
 def listar_productos(
-    db: DB,
     categoria_id: int | None = None,
     etiqueta: str | None = Query(default=None, examples=["mas vendidos"]),
     disponibilidad: Disponibilidad | None = None,
@@ -54,8 +65,31 @@ def listar_productos(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    productos = repo.listar_productos(db, categoria_id, etiqueta, disponibilidad, q, ids, limit, offset)
-    return [_out(p) for p in productos]
+    def cargar() -> list[ProductoOut]:
+        return leer(lambda db: [
+            _out(p) for p in repo.listar_productos(db, categoria_id, etiqueta, disponibilidad, q, ids, limit, offset)
+        ])
+
+    if q or ids:
+        return cargar()
+    clave = f"productos:{categoria_id}:{(etiqueta or '').lower()}:{disponibilidad}:{limit}:{offset}"
+    return cache.obtener(clave, cargar)
+
+
+@router.get("/opciones", response_model=list[ProductoOpcionOut])
+def opciones_productos():
+    """Solo id, nombre y categoría: para el selector de productos al agendar una cita."""
+
+    return cache.obtener("productos:opciones", lambda: leer(repo.productos_opciones))
+
+
+@router.get("/destacados", response_model=list[ProductoOut])
+def productos_destacados(limit: int = Query(default=4, ge=1, le=20)):
+    """"Especiales del mes" de Inicio: los más vendidos o, si no hay, los más recientes."""
+
+    return cache.obtener(
+        f"productos:destacados:{limit}", lambda: leer(lambda db: [_out(p) for p in repo.productos_destacados(db, limit)])
+    )
 
 
 # Va antes de /{producto_id} para que "count" no se interprete como id
@@ -76,12 +110,12 @@ def obtener_producto(producto_id: int, db: DB):
 
 @router.post("", response_model=ProductoOut, status_code=status.HTTP_201_CREATED)
 def crear_producto(datos: ProductoIn, admin: Admin, db: DB, tareas: BackgroundTasks):
-    _validar_categoria(db, datos.categoria_id)
+    categoria = _validar_categoria(db, datos.categoria_id)
     etiquetas = _resolver_etiquetas(db, datos.etiquetas)
-    p = Producto(**datos.model_dump(exclude={"etiquetas"}), etiquetas=etiquetas)
+    p = Producto(**datos.model_dump(exclude={"etiquetas"}), categoria=categoria, etiquetas=etiquetas)
     db.add(p)
     db.commit()
-    db.refresh(p)
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Nuevo producto: {p.nombre}", "nuevo")
     return _out(p)
 
@@ -93,13 +127,13 @@ def editar_producto(
     p = _obtener_o_404(db, producto_id)
     cambios = datos.model_dump(exclude_unset=True)
     if "categoria_id" in cambios:
-        _validar_categoria(db, cambios["categoria_id"])
+        p.categoria = _validar_categoria(db, cambios.pop("categoria_id"))
     if (nombres := cambios.pop("etiquetas", None)) is not None:
         p.etiquetas = _resolver_etiquetas(db, nombres)
     for campo, valor in cambios.items():
         setattr(p, campo, valor)
     db.commit()
-    db.refresh(p)
+    cache.limpiar()
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó el producto {p.nombre}", "modificacion"
     )
@@ -112,4 +146,5 @@ def eliminar_producto(producto_id: int, admin: Admin, db: DB, tareas: Background
     nombre = p.nombre
     db.delete(p)  # sus reseñas se quedan; solo se quita el vínculo (ON DELETE CASCADE)
     db.commit()
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó el producto {nombre}", "eliminacion")

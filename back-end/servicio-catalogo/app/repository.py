@@ -1,7 +1,12 @@
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only, noload, selectinload
 
 from app.models import Categoria, Etiqueta, Producto, Resena
+
+# De un producto ligado a una reseña solo se muestran id y nombre: no hace falta
+# traer su categoría ni sus etiquetas (eran 2 consultas extra por cada lista de reseñas).
+_SOLO_NOMBRE = (load_only(Producto.id, Producto.nombre), noload(Producto.categoria), noload(Producto.etiquetas))
+CARGA_RESENA = selectinload(Resena.productos).options(*_SOLO_NOMBRE)
 
 
 # ---------- Categorías ----------
@@ -69,6 +74,21 @@ def listar_productos(
     return list(db.scalars(stmt).unique())
 
 
+def productos_opciones(db: Session) -> list[dict]:
+    """Lista ligera (id, nombre, categoría) para llenar selects sin bajar el catálogo completo."""
+    filas = db.execute(
+        select(Producto.id, Producto.nombre, Categoria.nombre)
+        .join(Categoria, Producto.categoria_id == Categoria.id)
+        .order_by(Producto.nombre)
+    )
+    return [{"id": i, "nombre": n, "categoria_nombre": c} for i, n, c in filas]
+
+
+def productos_destacados(db: Session, limit: int) -> list[Producto]:
+    """Los "mas vendidos"; si no hay ninguno, los más recientes."""
+    return listar_productos(db, etiqueta="mas vendidos", limit=limit) or listar_productos(db, limit=limit)
+
+
 def contar_productos(db: Session) -> int:
     return db.scalar(select(func.count(Producto.id))) or 0
 
@@ -93,7 +113,7 @@ def listar_resenas(
     limit: int = 100,
     offset: int = 0,
 ) -> list[Resena]:
-    stmt = select(Resena)
+    stmt = select(Resena).options(CARGA_RESENA)
     if producto_id is not None:
         stmt = stmt.where(Resena.productos.any(Producto.id == producto_id))
     if usuario_id is not None:
@@ -102,11 +122,12 @@ def listar_resenas(
     return list(db.scalars(stmt).unique())
 
 
-def resena_de_cita(db: Session, cita_id: int) -> Resena | None:
-    return db.scalars(select(Resena).where(Resena.cita_id == cita_id)).first()
+def resena_de_cita(db: Session, cita_id: int) -> int | None:
+    """Id de la reseña que ya tiene esa cita (o None)."""
+    return db.scalar(select(Resena.id).where(Resena.cita_id == cita_id))
 
 
 def productos_por_id(db: Session, ids: list[int]) -> list[Producto]:
     if not ids:
         return []
-    return list(db.scalars(select(Producto).where(Producto.id.in_(ids))).unique())
+    return list(db.scalars(select(Producto).options(*_SOLO_NOMBRE).where(Producto.id.in_(ids))))

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import CuentaLayout from '../../components/CuentaLayout'
 import { api, type Usuario } from '../../lib/api'
-import { useSesion } from '../../lib/auth'
+import { useSesion } from '../../lib/sesion'
 import { botonOscuro, campoPublico, controlPublico, errorPublico, tarjetaCrema } from '../../lib/estilos'
 
 const tarjeta = `${tarjetaCrema} mb-6 flex flex-col gap-4 px-[34px] py-7 max-[560px]:px-5`

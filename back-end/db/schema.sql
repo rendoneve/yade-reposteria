@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS auth.usuarios (
     correo          VARCHAR(150) NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,          -- nunca la contraseña en texto plano (PBKDF2-SHA256)
     telefono        VARCHAR(20),
-    rol             VARCHAR(20)  NOT NULL DEFAULT 'admin'
+    rol             VARCHAR(20)  NOT NULL DEFAULT 'cliente'
                     CHECK (rol IN ('admin', 'cliente')),   -- cliente = cuenta creada desde el sitio
     activo          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS auth.usuarios (
 -- Correo único sin importar mayúsculas/minúsculas
 CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_correo
     ON auth.usuarios (lower(correo));
+
+-- Username único sin importar mayúsculas (y el login lo busca así)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_username
+    ON auth.usuarios (lower(username));
 
 
 -- =====================================================================
@@ -75,8 +79,8 @@ CREATE TABLE IF NOT EXISTS catalogo.productos (
     created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS ix_productos_categoria
-    ON catalogo.productos (categoria_id);
+CREATE INDEX IF NOT EXISTS ix_productos_categoria_fecha
+    ON catalogo.productos (categoria_id, created_at DESC);
 
 -- Un producto puede tener varias etiquetas ("nuevos" + "sin azucar", etc.)
 CREATE TABLE IF NOT EXISTS catalogo.producto_etiqueta (

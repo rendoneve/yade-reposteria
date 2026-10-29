@@ -67,6 +67,8 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
 - 🔓 `GET /categorias` (incluye `cantidad_productos`) · `GET /categorias/{id}`
 - 🔒 `POST /categorias` · `PATCH/DELETE /categorias/{id}` (no borra si tiene productos)
 - 🔓 `GET /productos?categoria_id=&etiqueta=&disponibilidad=&q=&limit=&offset=` · `GET /productos/{id}` · `GET /productos/count`
+- 🔓 `GET /productos/destacados?limit=4` ("más vendidos" o, si no hay, los más recientes) ·
+  `GET /productos/opciones` (solo `id`, `nombre`, `categoria_nombre`: para selects)
 - 🔒 `POST /productos` · `PATCH/DELETE /productos/{id}`
   (`etiquetas` es una lista de nombres: `["mas vendidos", "sin azucar"]`)
 - 🔓 `GET /etiquetas` · 🔒 `POST /etiquetas` · `DELETE /etiquetas/{id}`
@@ -76,11 +78,15 @@ Para probar endpoints de administrador en Swagger: haz login en `:8001/docs`
   una vez por cita; queda ligada a la cita y a sus productos (se valida con servicio-citas por HTTP)
 
 **Citas**
-- 🔓 `POST /citas` — formulario del sitio; la fecha debe ser futura y llevar zona horaria
+- 🔓 `GET /citas/disponibilidad?fecha=2026-11-05` → horas libres de ese día (`franjas: [{inicio, disponible}]`).
+  Si el negocio no ha configurado horarios responde `configurado: false` y el sitio deja escoger cualquier hora.
+- 🔓 `POST /citas` — formulario del sitio; la fecha debe ser futura, llevar zona horaria, caer dentro del
+  horario del negocio y no encimarse con otra cita (si no: 422 / 409)
   (`2026-11-05T16:00:00-07:00`). Siempre queda en estado `proximo`. Acepta `producto_ids` (se validan con
   servicio-catalogo y se guarda su nombre). Si va con token, la cita queda en la cuenta del cliente.
 - 👤 `GET /citas/mias` · `PATCH /citas/mias/{id}/cancelar` (solo si está `proximo` y su fecha no ha pasado)
-- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=` · `GET /citas/proximas/count` · `GET /citas/terminadas/count` · `GET /citas/resumen` (panel)
+- 🔒 `GET /citas?estado=&tipo_servicio=&desde=&hasta=&q=&limit=&offset=` (header `X-Total-Count` con el total;
+  orden: primero las que vienen y luego las pasadas) · `GET /citas/proximas/count` · `GET /citas/terminadas/count` · `GET /citas/resumen` (panel)
 - 🔒 `POST /citas/admin` (captura del administrador) · `GET/PATCH/DELETE /citas/{id}` · `PATCH /citas/{id}/estado`
 
 **Negocio**
@@ -119,7 +125,26 @@ servicio-x/
   Si ese servicio está caído, la operación igual se completa.
 - No hay migraciones: si cambias un modelo, actualiza `db/schema.sql` y agrega el
   `ALTER TABLE ...` a `ACTUALIZACIONES` en `app/core/database.py` del servicio (se aplica al arrancar).
-- Las imágenes se guardan como URL (`imagen_url`, `banner_url`); subir archivos queda para después.
+- Las imágenes se guardan como URL (`imagen_url`, `banner_url`); el front las reduce a WebP de máx. 1600 px antes de subirlas.
+
+## Rendimiento y conexión a la base de datos
+
+- Cada ida y vuelta a Neon cuesta ~100-200 ms (la BD está en `us-east-2`). Por eso:
+  - **Sin ping por petición**: solo se hace `SELECT 1` si la conexión estuvo ociosa más de 30 s.
+    `pool_recycle=240` la descarta antes de que Neon suspenda el cómputo.
+  - **Sin `db.refresh()`**: los modelos usan `eager_defaults` y el `INSERT/UPDATE ... RETURNING` trae id y fechas.
+  - **Caché en memoria** (60 s, se vacía al guardar cambios): `/negocio`, `/horarios`, `/categorias`,
+    `/etiquetas` y las listas de productos sin búsqueda. Una visita normal al sitio casi no toca Neon.
+  - El gateway comprime con gzip las respuestas de más de 1 KB.
+- **No usar el modo autocommit de pg8000** para ahorrar el BEGIN/ROLLBACK: se probó y con peticiones
+  simultáneas mezcla las respuestas entre conexiones.
+- Si se despliega, conviene usar la cadena **pooled** de Neon (host con `-pooler`) y poner el backend en la
+  misma región que la base de datos.
+
+## Límite de intentos (gateway)
+
+Por IP: 10 logins por minuto, 5 cuentas nuevas por hora y 10 citas públicas por hora (responde 429).
+Se cambian con las variables `LIMITE_*` del `.env`. Los contadores viven en memoria: se reinician con el gateway.
 
 ## Notas técnicas
 

@@ -6,7 +6,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError
 
+from app.core.database import es_desconexion
+
 log = logging.getLogger(__name__)
+
+RECONECTANDO = {"detail": "La base de datos se está reconectando. Intenta de nuevo."}
 
 
 def registrar_manejadores(app: FastAPI) -> None:
@@ -33,9 +37,17 @@ def registrar_manejadores(app: FastAPI) -> None:
     @app.exception_handler(InterfaceError)
     async def _conexion_reiniciada(request: Request, exc: InterfaceError):
         log.warning("Conexión de base de datos reiniciada durante la solicitud: %s", exc)
-        return JSONResponse(
-            status_code=503, content={"detail": "La base de datos se está reconectando. Intenta de nuevo."}
-        )
+        return JSONResponse(status_code=503, content=RECONECTANDO)
+
+    @app.exception_handler(Exception)
+    async def _inesperado(request: Request, exc: Exception):
+        # Último recurso. Un corte de Neon puede llegar aquí envuelto en otra excepción
+        # (p. ej. si también falla el ROLLBACK de la conexión cortada): es un 503, no un 500.
+        if es_desconexion(exc):
+            log.warning("Conexión con la base de datos cortada en %s: %s", request.url.path, exc)
+            return JSONResponse(status_code=503, content=RECONECTANDO)
+        log.error("Error inesperado en %s %s", request.method, request.url.path, exc_info=exc)
+        return JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})
 
 
 def _sqlstate(exc: Exception) -> str | None:

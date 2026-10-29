@@ -39,6 +39,8 @@ class Etiqueta(Base):
 
 class Producto(Base):
     __tablename__ = "productos"
+    # Trae id, fechas y valores por defecto en el mismo INSERT/UPDATE (RETURNING): sin db.refresh()
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(150))
@@ -59,6 +61,8 @@ class Producto(Base):
 
 class Resena(Base):
     __tablename__ = "resenas"
+    # Trae id, fechas y valores por defecto en el mismo INSERT/UPDATE (RETURNING): sin db.refresh()
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre_cliente: Mapped[str] = mapped_column(String(100))

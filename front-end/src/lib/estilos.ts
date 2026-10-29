@@ -11,7 +11,7 @@ export const botonPeligro =
   'mr-auto h-8 rounded-2xl border border-error px-4 font-texto text-[15px] leading-none text-error transition-colors enabled:hover:bg-error/10 disabled:opacity-60'
 
 // Sin tamaño de letra: cada uso pone el suyo (text-[15px], text-[17px]…)
-export const enlaceDorado = 'font-ui leading-[1.3] font-semibold whitespace-pre text-dorado hover:underline'
+export const enlaceDorado = 'font-ui leading-[1.3] font-semibold whitespace-pre text-dorado-texto hover:underline'
 
 // ---------- Formularios del panel (modales) ----------
 export const formAdmin = 'flex flex-col gap-[13px]'
@@ -38,7 +38,7 @@ export const tituloTarjetaAdmin = 'font-ui text-[19px] leading-[1.3] font-semibo
 // ---------- Tablas del panel ----------
 export const tabla = 'mt-3.5 w-full table-fixed border-collapse max-[960px]:min-w-[640px]'
 export const celdaTh =
-  'border-b-2 border-tinto-texto px-1.5 pb-3.5 text-center font-ui text-[15px] leading-[1.3] font-semibold text-dorado max-[1200px]:text-sm'
+  'border-b-2 border-tinto-texto px-1.5 pb-3.5 text-center font-ui text-[15px] leading-[1.3] font-semibold text-dorado-texto max-[1200px]:text-sm'
 export const celdaTd =
   'h-[66px] border-b border-tinto-texto/20 p-1.5 text-center font-texto text-[15px] leading-[1.3] wrap-anywhere max-[1200px]:text-sm'
 

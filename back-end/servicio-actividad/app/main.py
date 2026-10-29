@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
@@ -10,13 +11,18 @@ from app.routers import actividades, estadisticas
 
 from app.core.config import settings
 
+log = logging.getLogger("uvicorn.error")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # A diferencia de los otros servicios, este no ejecuta migraciones al arrancar;
-    # validar la BD aquí evita anunciarlo listo cuando sus consultas fallarían.
-    with engine.connect() as conexion:
-        conexion.execute(text("SELECT 1"))
+    # Abre la primera conexión (y despierta a Neon) antes de la primera visita al panel.
+    # Si la BD no responde, el servicio arranca igual y lo reintenta en la siguiente petición.
+    try:
+        with engine.connect() as conexion:
+            conexion.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - solo es un calentamiento
+        log.warning("La base de datos no respondió al arrancar: %s", exc)
     # Mantener el pool HTTP entre peticiones evita abrir conexiones nuevas al cargar el panel.
     async with httpx.AsyncClient(timeout=settings.http_timeout) as cliente:
         app.state.http = cliente

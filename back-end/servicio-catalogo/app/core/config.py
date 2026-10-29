@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         env_file=(SERVICIO_DIR.parent / ".env", SERVICIO_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        env_ignore_empty=True,  # una línea vacía en el .env usa el valor por defecto
     )
 
     database_url: str

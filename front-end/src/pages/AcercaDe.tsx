@@ -43,10 +43,10 @@ export default function AcercaDe() {
               <h2 className="font-titulo text-4xl leading-[1.1] font-bold text-dorado">Visítanos</h2>
               {datos.ubicacion && <p className={texto}>{datos.ubicacion}</p>}
               {datos.mapa_url && (
-                <a className="font-ui text-base leading-[1.4] font-semibold text-dorado hover:underline" href={datos.mapa_url} target="_blank" rel="noreferrer">Ver en el mapa →</a>
+                <a className="font-ui text-base leading-[1.4] font-semibold text-dorado-texto hover:underline" href={datos.mapa_url} target="_blank" rel="noreferrer">Ver en el mapa →</a>
               )}
               {datos.whatsapp && (
-                <a className="font-ui text-base leading-[1.4] font-semibold text-dorado hover:underline" href={`https://wa.me/${datos.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
+                <a className="font-ui text-base leading-[1.4] font-semibold text-dorado-texto hover:underline" href={`https://wa.me/${datos.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
                   Escríbenos por WhatsApp →
                 </a>
               )}

@@ -4,8 +4,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import repository as repo
+from app.core import cache
 from app.core.actividad import registrar_actividad
-from app.core.database import get_db
+from app.core.database import get_db, leer
 from app.core.security import Admin
 from app.models import Etiqueta
 from app.schemas import EtiquetaIn, EtiquetaOut
@@ -15,8 +16,10 @@ DB = Annotated[Session, Depends(get_db)]
 
 
 @router.get("", response_model=list[EtiquetaOut])
-def listar_etiquetas(db: DB):
-    return repo.listar_etiquetas(db)
+def listar_etiquetas():
+    return cache.obtener(
+        "etiquetas", lambda: leer(lambda db: [EtiquetaOut.model_validate(e) for e in repo.listar_etiquetas(db)])
+    )
 
 
 @router.post("", response_model=EtiquetaOut, status_code=status.HTTP_201_CREATED)
@@ -27,7 +30,7 @@ def crear_etiqueta(datos: EtiquetaIn, admin: Admin, db: DB, tareas: BackgroundTa
     e = Etiqueta(nombre=nombre)
     db.add(e)
     db.commit()
-    db.refresh(e)
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Nueva etiqueta: {e.nombre}", "nuevo")
     return e
 
@@ -40,4 +43,5 @@ def eliminar_etiqueta(etiqueta_id: int, admin: Admin, db: DB, tareas: Background
     nombre = e.nombre
     db.delete(e)  # se quita de los productos que la tenían (ON DELETE CASCADE)
     db.commit()
+    cache.limpiar()
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó la etiqueta {nombre}", "eliminacion")
