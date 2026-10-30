@@ -241,7 +241,11 @@ export type Resena = {
   productos: { id: number; nombre: string }[]
   cita_id: number | null
   usuario_id: number | null
+  aprobada: boolean // false = pendiente de que el administrador la apruebe
+  calificacion: number | null // 1 a 5 estrellas
 }
+
+export type ResumenResenas = { total: number; con_calificacion: number; promedio: number | null }
 
 export type Horario = { dia_semana: number; dia: string; abre: string | null; cierra: string | null; cerrado: boolean }
 

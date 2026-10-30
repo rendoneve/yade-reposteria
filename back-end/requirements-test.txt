@@ -1,0 +1,11 @@
+# Dependencias para correr las pruebas: pip install -r requirements-test.txt && pytest
+pytest
+httpx
+fastapi
+pydantic-settings
+pydantic[email]
+PyJWT
+sqlalchemy
+pg8000
+boto3
+python-multipart

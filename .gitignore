@@ -1,0 +1,19 @@
+# Secretos y entornos
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

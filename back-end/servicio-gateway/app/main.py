@@ -68,7 +68,8 @@ _intentos: dict[tuple[str, str, str, str], deque[float]] = {}
 
 def _ip(request: Request) -> str:
     if settings.confiar_x_forwarded_for and (reenviada := request.headers.get("x-forwarded-for")):
-        return reenviada.split(",")[0].strip()
+        # La última IP es la que añadió NUESTRO proxy; las anteriores las puede escribir el cliente.
+        return reenviada.split(",")[-1].strip()
     return request.client.host if request.client else "desconocida"
 
 
@@ -95,6 +96,23 @@ def _revisar_limite(request: Request, recurso: str, resto: str) -> None:
     if len(_intentos) > 10_000:  # limpieza ocasional de IPs que ya no tienen intentos recientes
         for k in [k for k, v in _intentos.items() if not v or ahora - v[-1] >= 3600]:
             _intentos.pop(k, None)
+
+
+async def _leer_cuerpo(request: Request, recurso: str) -> bytes:
+    """Lee el cuerpo con tope de tamaño: se corta en cuanto se pasa, sin cargarlo completo."""
+    maximo = settings.max_cuerpo_imagenes_bytes if recurso == "imagenes" else settings.max_cuerpo_bytes
+    demasiado = HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "El contenido enviado es demasiado grande")
+    declarado = request.headers.get("content-length")
+    if declarado and declarado.isdigit() and int(declarado) > maximo:
+        raise demasiado
+    partes: list[bytes] = []
+    total = 0
+    async for trozo in request.stream():
+        total += len(trozo)
+        if total > maximo:
+            raise demasiado
+        partes.append(trozo)
+    return b"".join(partes)
 
 
 @asynccontextmanager
@@ -175,7 +193,7 @@ async def _reenviar(request: Request, recurso: str, resto: str) -> Response:
     if request.client:
         cabeceras["x-forwarded-for"] = request.client.host
 
-    cuerpo = await request.body()
+    cuerpo = await _leer_cuerpo(request, recurso)
     idempotente = request.method in IDEMPOTENTES
     for intento in range(2):
         try:

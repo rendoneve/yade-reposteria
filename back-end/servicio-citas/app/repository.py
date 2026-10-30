@@ -84,11 +84,15 @@ def listar_de_usuario(db: Session, usuario_id: int) -> list[Cita]:
     return list(db.scalars(stmt))
 
 
-def fechas_ocupadas(db: Session, desde: datetime, hasta: datetime) -> list[datetime]:
+def fechas_ocupadas(
+    db: Session, desde: datetime, hasta: datetime, excepto_id: int | None = None
+) -> list[datetime]:
     """Inicio de las citas activas que pueden encimarse con el rango [desde, hasta)."""
     stmt = select(Cita.fecha).where(
         Cita.estado.in_(ACTIVAS), Cita.fecha > desde - DURACION, Cita.fecha < hasta
     )
+    if excepto_id is not None:
+        stmt = stmt.where(Cita.id != excepto_id)
     return list(db.scalars(stmt))
 
 

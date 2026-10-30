@@ -7,7 +7,7 @@ from app import repository as repo
 from app.core.actividad import registrar_actividad
 from app.core.database import get_db
 from app.core.passwords import HASH_FALSO, hash_password, verificar_password
-from app.core.security import UsuarioActual, UsuarioToken
+from app.core.security import UsuarioActual, UsuarioToken, require_internal_key
 from app.core.tokens import crear_token
 from app.models import Usuario
 from app.routers.usuarios import validar_unicos
@@ -55,6 +55,15 @@ def registro(datos: RegistroIn, db: DB, tareas: BackgroundTasks):
     )
     token, segundos = crear_token(usuario)
     return TokenOut(access_token=token, expires_in=segundos, usuario=usuario)
+
+
+@router.get("/interno/{usuario_id}", include_in_schema=False, dependencies=[Depends(require_internal_key)])
+def cuenta_interna(usuario_id: int, db: DB):
+    """Los demás servicios preguntan aquí si una cuenta sigue activa y con qué rol."""
+    usuario = repo.obtener(db, usuario_id)
+    if not usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    return {"activo": usuario.activo, "rol": usuario.rol}
 
 
 @router.get("/me", response_model=UsuarioOut)

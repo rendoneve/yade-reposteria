@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy.orm import Session
 
 from app import repository as repo
-from app.core import cache
+from app.core import almacenamiento, cache
 from app.core.actividad import registrar_actividad
 from app.core.database import get_db, leer
 from app.core.security import Admin
@@ -99,7 +99,8 @@ def contar_productos(db: DB):
 
 
 @router.get("/resumen")
-def resumen_productos(db: DB):
+def resumen_productos(admin: Admin, db: DB):
+    """Conteos de inventario: solo para el panel (servicio-actividad lo pide con el token del admin)."""
     return repo.resumen_productos(db)
 
 
@@ -126,6 +127,7 @@ def editar_producto(
 ):
     p = _obtener_o_404(db, producto_id)
     cambios = datos.model_dump(exclude_unset=True)
+    imagen_anterior = p.imagen_url
     if "categoria_id" in cambios:
         p.categoria = _validar_categoria(db, cambios.pop("categoria_id"))
     if (nombres := cambios.pop("etiquetas", None)) is not None:
@@ -134,6 +136,8 @@ def editar_producto(
         setattr(p, campo, valor)
     db.commit()
     cache.limpiar()
+    if imagen_anterior != p.imagen_url and not repo.imagen_en_uso(db, imagen_anterior):
+        tareas.add_task(almacenamiento.borrar, imagen_anterior)
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó el producto {p.nombre}", "modificacion"
     )
@@ -144,7 +148,10 @@ def editar_producto(
 def eliminar_producto(producto_id: int, admin: Admin, db: DB, tareas: BackgroundTasks):
     p = _obtener_o_404(db, producto_id)
     nombre = p.nombre
+    imagen = p.imagen_url
     db.delete(p)  # sus reseñas se quedan; solo se quita el vínculo (ON DELETE CASCADE)
     db.commit()
     cache.limpiar()
+    if not repo.imagen_en_uso(db, imagen):
+        tareas.add_task(almacenamiento.borrar, imagen)
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó el producto {nombre}", "eliminacion")

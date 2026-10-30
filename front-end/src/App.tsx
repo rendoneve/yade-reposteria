@@ -53,6 +53,7 @@ function precargarPaginas() {
   void import('./pages/cuenta/Entrar')
 }
 
+// RAÍZ: sesión global + páginas cargadas bajo demanda (Suspense) + avisos flotantes.
 export default function App() {
   useEffect(() => {
     if ('requestIdleCallback' in window) {
@@ -73,11 +74,13 @@ export default function App() {
   )
 }
 
+// ENRUTADOR: decide qué pantalla se muestra según la URL y pone el título de la pestaña.
 function Rutas() {
   const { path } = useRuta()
   const { nombre } = useNegocio()
   const existe = PUBLICAS.includes(path) || path.startsWith('/admin') || path.startsWith('/cuenta')
   useTitulo(existe ? (TITULOS.find(([p]) => path.startsWith(p))?.[1] ?? null) : 'Página no encontrada', nombre)
+  // /admin/* y /cuenta/* tienen su propia protección; el resto son páginas públicas.
   if (path.startsWith('/admin')) return <RutasAdmin path={path} />
   if (path.startsWith('/cuenta')) return <RutasCuenta path={path} />
   switch (path) {
@@ -103,6 +106,7 @@ function RutasCuenta({ path }: { path: string }) {
   }
 }
 
+// Panel del administrador: sin sesión de admin se muestra el Login del panel; con sesión, la pantalla pedida.
 function RutasAdmin({ path }: { path: string }) {
   const { usuario, cargando } = useSesion()
   if (cargando) return <div className={fondoLogin}><Cargando /></div>

@@ -29,6 +29,7 @@ import { CATEGORIAS, cargarCategorias, cargarOpcionesProductos, OPCIONES_PRODUCT
 import { useNegocio } from '../lib/negocio'
 import { useRuta } from '../lib/router'
 import { useSesion } from '../lib/sesion'
+import { vaciarLista } from '../lib/lista'
 import { useDatos } from '../lib/useDatos'
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -69,10 +70,12 @@ export default function AgendarCita() {
   const { usuario } = useSesion()
   const { negocio } = useNegocio()
   const idProducto = Number(query.get('producto')) || null
+  // ?productos=1,2,3 llega desde "Mi lista para cotizar" del catálogo
+  const idsLista = (query.get('productos') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 20)
   const categorias = useDatos(CATEGORIAS, cargarCategorias)
   const catalogo = useDatos(OPCIONES_PRODUCTOS, cargarOpcionesProductos)
   // Productos que se piden en la cita (quedan ligados a ella y, después, a la reseña)
-  const [elegidos, setElegidos] = useState<number[]>(() => (idProducto ? [idProducto] : []))
+  const [elegidos, setElegidos] = useState<number[]>(() => (idsLista.length ? idsLista : idProducto ? [idProducto] : []))
 
   const [fechaElegida, setFecha] = useState<string | null>(null)
   const fecha = fechaElegida ?? primerDiaAbierto(negocio?.horarios)
@@ -115,6 +118,7 @@ export default function AgendarCita() {
           producto_ids: elegidos,
         },
       })
+      vaciarLista() // ya se pidió la cotización: la lista del catálogo empieza de cero
       setConfirmada({ fecha: r.fecha, nombre })
       window.scrollTo(0, 0)
     } catch (err) {
@@ -133,7 +137,7 @@ export default function AgendarCita() {
   const servicioDe = (nombre: string) =>
     Object.keys(ETIQUETA_SERVICIO).find((k) => ETIQUETA_SERVICIO[k].toLowerCase() === nombre.trim().toLowerCase())
   const categoriasExtra = (categorias.datos ?? []).filter((c) => !servicioDe(c.nombre))
-  const nombreCategoria = catalogo.datos?.find((p) => p.id === idProducto)?.categoria_nombre
+  const nombreCategoria = catalogo.datos?.find((p) => p.id === (idsLista[0] ?? idProducto))?.categoria_nombre
   const tipoInicial = nombreCategoria ? (servicioDe(nombreCategoria) ?? nombreCategoria) : 'pasteles'
   const whatsapp = negocio?.whatsapp?.replace(/\D/g, '')
   // Lunes primero
@@ -141,6 +145,7 @@ export default function AgendarCita() {
 
   return (
     <div className={pagina}>
+      {/* ÁREA 1 · HERO: solo el título "Agendar cita". */}
       <section className={`${hero} ${degradadoHero} h-[280px]`}>
         <Encabezado />
         <h1 className={`${heroTitulo} top-[110px] h-[110px]`}>
@@ -148,7 +153,9 @@ export default function AgendarCita() {
         </h1>
       </section>
       <main className="flex-1 px-margen pt-[60px] pb-[100px] max-[760px]:px-4 max-[760px]:pt-10 max-[760px]:pb-20">
+        {/* ÁREA 2 · CONTENIDO: si la cita ya se creó se muestra la confirmación; si no, el formulario. */}
         {confirmada ? (
+          // CONFIRMACIÓN: fecha de la cita, botón para avisar por WhatsApp y enlace a "Mis citas" (o invitación a crear cuenta si no inició sesión).
           <div className={`${tarjetaForm} mx-auto max-w-[620px]`} role="status">
             <h2 className="font-titulo text-[34px] leading-[1.1] font-bold text-exito">¡Listo! Tu cita quedó agendada</h2>
             <p className="font-texto text-lg leading-normal">Te esperamos el {formatoFecha(confirmada.fecha)}.</p>
@@ -174,14 +181,18 @@ export default function AgendarCita() {
             )}
           </div>
         ) : (
+          // FORMULARIO + HORARIOS: formulario a la izquierda y tarjeta de horarios a la derecha (una sola columna en celular).
           <div className="mx-auto grid max-w-[980px] grid-cols-[1fr_300px] items-start gap-6 max-[900px]:max-w-[620px] max-[900px]:grid-cols-1">
+            {/* FORMULARIO DE CITA. Se reinicia si cambia el tipo inicial (viene de ?tipo=) o la sesión, para precargar datos de la cuenta. */}
             <form className={tarjetaForm} onSubmit={enviar} key={`${tipoInicial}|${categoriasExtra.length}|${usuario?.id}`}>
+              {/* Aviso para visitantes sin sesión: iniciar sesión permite ver, cancelar y reseñar la cita. */}
               {!usuario && (
                 <p className="font-texto text-[15px] leading-normal text-texto-secundario">
                   ¿Tienes cuenta? <Link to={entrarYVolver} className={`${enlaceDorado} text-[15px]`}>Inicia sesión</Link> para
                   ver esta cita en tu panel, cancelarla y dejar tu reseña cuando termine.
                 </p>
               )}
+              {/* DÍA: fecha entre mañana y el máximo permitido; al cambiarla se vuelve a consultar la disponibilidad. */}
               <label className={campoPublico}>
                 Día
                 <input
@@ -190,6 +201,7 @@ export default function AgendarCita() {
                 />
               </label>
 
+              {/* HORA: cuadrícula de horas libres que llega del servidor (/citas/disponibilidad). Las ocupadas salen deshabilitadas. */}
               <fieldset className={campoPublico}>
                 <legend className="mb-1.5">Hora</legend>
                 {agenda.cargando && <p className="font-texto text-[15px] font-normal text-texto-secundario">Buscando horas disponibles…</p>}
@@ -223,6 +235,7 @@ export default function AgendarCita() {
                 )}
               </fieldset>
 
+              {/* DATOS DE CONTACTO: nombre, teléfono y correo (se rellenan solos si hay sesión). */}
               <label className={campoPublico}>
                 Nombre
                 <input className={controlPublico} name="nombre" required maxLength={100} autoComplete="name" defaultValue={usuario?.nombre_completo} />
@@ -237,6 +250,7 @@ export default function AgendarCita() {
                   <input className={controlPublico} name="correo" type="email" autoComplete="email" defaultValue={usuario?.correo} />
                 </label>
               </div>
+              {/* TIPO DE SERVICIO: servicios fijos y, si vienen de la URL, categorías del catálogo. */}
               <label className={campoPublico}>
                 Tipo de servicio
                 <select className={controlPublico} name="tipo" required defaultValue={tipoInicial}>
@@ -254,6 +268,7 @@ export default function AgendarCita() {
                   )}
                 </select>
               </label>
+              {/* PRODUCTOS (opcional): se agregan como chips desde un selector, hasta 20. */}
               <fieldset className={campoPublico}>
                 <legend className="mb-1.5">Productos (opcional)</legend>
                 {elegidos.length > 0 && (
@@ -286,16 +301,19 @@ export default function AgendarCita() {
                   ))}
                 </select>
               </fieldset>
+              {/* DETALLES: sabor, número de personas, decoración, etc. */}
               <label className={campoPublico}>
                 Detalles
                 <textarea className={controlPublico} name="detalles" rows={4} maxLength={2000} placeholder="Sabor, número de personas, decoración…" />
               </label>
+              {/* Error del envío y botón de agendar. */}
               {error && <p className={errorPublico} role="alert">{error}</p>}
               <button className={botonOscuro} type="submit" disabled={enviando}>
                 {enviando ? 'Enviando…' : 'Agendar cita'}
               </button>
             </form>
 
+            {/* TARJETA DE HORARIOS: días y horas de atención y duración de cada cita. */}
             {horarios.some((h) => !h.cerrado) && (
               <aside className={`${tarjetaCrema} px-6 py-5`} aria-label="Horarios">
                 <h2 className="mb-2 font-titulo text-[26px] leading-[1.2] font-bold text-tinto-texto">Horarios</h2>
@@ -315,6 +333,7 @@ export default function AgendarCita() {
           </div>
         )}
       </main>
+      {/* ÁREA 3 · PIE compartido. */}
       <Pie />
     </div>
   )

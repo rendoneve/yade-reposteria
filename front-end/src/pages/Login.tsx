@@ -13,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
+  // Envía las credenciales; si la cuenta no es admin se cierra la sesión y se avisa (los clientes usan /entrar).
   const enviar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
@@ -33,10 +34,13 @@ export default function Login() {
   }
 
   return (
+    // PANTALLA DE LOGIN DEL PANEL: tarjeta centrada sobre fondo oscuro, sin encabezado ni pie del sitio.
     <div className={fondoLogin}>
       <form className="flex w-[min(400px,100%)] flex-col gap-[15px] rounded-[18px] bg-crema p-8 shadow-[0_20px_60px_rgba(0,0,0,0.35)]" onSubmit={enviar}>
+        {/* Logo del negocio (teñido para verse sobre fondo claro) y título. */}
         <img src={logo} width={218} height={106} alt={nombre} className="w-[110px] self-center brightness-25 sepia -hue-rotate-30 saturate-300" />
         <h1 className="text-center font-titulo text-[30px] leading-[1.1] font-bold text-tinto-texto">Panel de administración</h1>
+        {/* Campos usuario/correo y contraseña. */}
         <label className={campoAdmin}>
           Usuario o correo
           <input className={controlLogin} name="usuario" required autoComplete="username" autoFocus />
@@ -45,10 +49,12 @@ export default function Login() {
           Contraseña
           <input className={controlLogin} name="password" type="password" required autoComplete="current-password" />
         </label>
+        {/* Mensaje de error y botón de entrar. */}
         {error && <p className={errorAdmin} role="alert">{error}</p>}
         <button className={botonOscuro} type="submit" disabled={enviando}>
           {enviando ? 'Entrando…' : 'Entrar'}
         </button>
+        {/* Enlace para volver al sitio público. */}
         <Link to="/" className="text-center font-ui text-[13px] leading-none font-semibold text-dorado">← Volver al sitio</Link>
       </form>
     </div>

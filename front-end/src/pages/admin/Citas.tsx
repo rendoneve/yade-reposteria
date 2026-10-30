@@ -35,12 +35,14 @@ const COLOR_ESTADO: Record<EstadoCita, string> = {
 const chip = 'rounded-[15px] bg-chip font-texto whitespace-nowrap text-tinto-texto transition-colors'
 const controlFecha = 'h-[38px] rounded-[19px] bg-white px-3 font-texto text-[15px] shadow-[0_2px_8px_rgba(48,14,21,0.12)]'
 
+// Utilidades de contacto: dejan solo dígitos para armar enlaces tel: y wa.me.
 const telefonoLimpio = (t: string) => t.replace(/[^\d+]/g, '')
 // WhatsApp necesita lada de país; los números de 10 dígitos se toman como de México
 const whatsappDe = (t: string) => {
   const d = t.replace(/\D/g, '')
   return d.length === 10 ? `52${d}` : d
 }
+// Fecha de hoy en formato YYYY-MM-DD (para el botón "Hoy").
 const hoy = () => new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
 
 /* ADMINISTRADOR citas (Figma 37:306) */
@@ -69,9 +71,11 @@ export default function Citas() {
   const total = citas.datos?.total ?? 0
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA))
 
+  // Cualquier cambio de filtro regresa a la página 1.
   const filtrar = (cambio: () => void) => { cambio(); setPagina(0) }
 
   /* El cambio se ve al instante; si el servidor lo rechaza se regresa al estado anterior. */
+  // Cambia el estado de una cita con actualización inmediata en pantalla; si el servidor falla, revierte y avisa.
   const cambiarEstado = async (c: Cita, nuevo: EstadoCita) => {
     const poner = (e: EstadoCita) =>
       actualizarEnCache<Pagina<Cita[]>>(clave, (p) => ({ ...p, items: p.items.map((x) => (x.id === c.id ? { ...x, estado: e } : x)) }))
@@ -84,12 +88,14 @@ export default function Citas() {
       avisar((e as Error).message, 'error')
     }
   }
+  // Cancelar pide confirmación; los demás estados se aplican directo.
   const elegirEstado = (c: Cita, nuevo: EstadoCita) => {
     if (nuevo === c.estado) return
     if (nuevo === 'cancelado') setCancelando(c)
     else void cambiarEstado(c, nuevo)
   }
 
+  // Desplegable de estado de la cita (próximo / en proceso / terminado / cancelado).
   const selectorEstado = (c: Cita) => (
     <select
       className={`w-full rounded-[14px] border border-rosa-vino bg-white px-2 py-[5px] font-texto text-[13px] leading-[1.2] ${COLOR_ESTADO[c.estado]}`}
@@ -100,6 +106,7 @@ export default function Citas() {
       {ESTADOS.map((s) => <option key={s} value={s}>{TEXTO_ESTADO[s]}</option>)}
     </select>
   )
+  // Teléfono con enlaces para llamar y escribir por WhatsApp.
   const contacto = (c: Cita) => (
     <span className="inline-flex items-center gap-1.5">
       <a className="hover:underline" href={`tel:${telefonoLimpio(c.telefono)}`} title="Llamar">{c.telefono}</a>
@@ -114,6 +121,7 @@ export default function Citas() {
       </a>
     </span>
   )
+  // Texto de detalles + productos que pidió el cliente.
   const detalles = (c: Cita) => (
     <>
       {c.productos.length > 0 && <span className="block text-black">{c.productos.map((p) => p.nombre).join(', ')}</span>}
@@ -124,7 +132,9 @@ export default function Citas() {
   const tituloTabla = FILTROS.find((f) => f.valor === estado)?.texto ?? 'Todas'
 
   return (
+    // PANTALLA DE CITAS DEL ADMIN.
     <AdminLayout titulo="Citas">
+      {/* ÁREA 1 · BARRA DE FILTROS: buscador (nombre, teléfono o correo) y chips de estado. */}
       <div className="-mt-1 mb-4 flex flex-wrap items-center gap-2">
         <div className="relative h-[38px] w-[300px] max-[960px]:w-auto max-[960px]:flex-1">
           <svg className="absolute top-[11px] left-[13px] text-[#3c3c43]" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -154,6 +164,7 @@ export default function Citas() {
           ))}
         </div>
       </div>
+      {/* ÁREA 2 · FILTRO POR FECHAS: desde / hasta, atajo "Hoy" y "Quitar fechas". */}
       <div className="mb-[26px] flex flex-wrap items-center gap-2 font-ui text-sm font-semibold text-tinto-texto">
         <label className="flex items-center gap-2">Desde <input type="date" className={controlFecha} value={desde} onChange={(e) => filtrar(() => setDesde(e.target.value))} /></label>
         <label className="flex items-center gap-2">Hasta <input type="date" className={controlFecha} value={hasta} min={desde || undefined} onChange={(e) => filtrar(() => setHasta(e.target.value))} /></label>
@@ -163,6 +174,7 @@ export default function Citas() {
         )}
       </div>
 
+      {/* ÁREA 3 · LISTADO: primero las citas que vienen, luego las pasadas. Tabla en computadora y tarjetas en celular. */}
       <section className={`${tarjetaAdmin} px-7 pt-[26px] pb-[22px] max-[760px]:bg-transparent max-[760px]:px-0 max-[760px]:shadow-none`}>
         <h2 className="font-ui text-[19px] leading-[1.3] font-semibold text-black">
           {tituloTabla === 'Todas' ? 'Todas las citas' : tituloTabla}
@@ -214,10 +226,12 @@ export default function Citas() {
           ))}
         </ul>
 
+        {/* Estados de carga, error y vacío. */}
         {citas.cargando && <Cargando />}
         {citas.error && <MensajeError texto={citas.error} reintentar={citas.recargar} />}
         {citas.datos && lista.length === 0 && <Vacio texto="No hay citas con esos filtros." />}
 
+        {/* ÁREA 4 · PAGINACIÓN (25 por página). */}
         {paginas > 1 && (
           <nav className="mt-5 flex items-center justify-center gap-3 font-ui text-sm font-semibold text-tinto-texto" aria-label="Páginas">
             <button type="button" className={`${chip} h-[30px] px-3 disabled:opacity-40`} disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>← Anteriores</button>
@@ -227,6 +241,7 @@ export default function Citas() {
         )}
       </section>
 
+      {/* Confirmación antes de cancelar (libera la hora para otro cliente). */}
       {cancelando && (
         <Confirmar
           titulo="Cancelar cita"

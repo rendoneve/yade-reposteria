@@ -21,7 +21,9 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
   const activo = (to: string) => (to === '/admin' ? path === '/admin' : path.startsWith(to))
 
   return (
+    // MARCO DEL PANEL: barra superior, menú lateral, contenido y pie.
     <div className="flex min-h-screen flex-col bg-beige">
+      {/* BARRA SUPERIOR: logo, usuario en sesión, "Ver sitio" y "Salir". */}
       <header className="flex h-[76px] flex-none items-center justify-between border-b border-tinto bg-tinto-oscuro pr-8 pl-14 max-[960px]:px-4">
         <Link to="/admin" aria-label="Inicio del panel">
           <img className="w-24" src={logo} width={150} height={73} alt={nombre} />
@@ -38,7 +40,9 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
           </button>
         </div>
       </header>
+      {/* CUERPO: menú lateral + contenido (el menú pasa arriba en celular). */}
       <div className="flex min-h-[calc(100vh-76px-110px)] flex-1 max-[960px]:min-h-0 max-[960px]:flex-col">
+        {/* MENÚ LATERAL: secciones del panel; la actual se marca con aria-current. */}
         <nav
           className="flex w-62 flex-none flex-col gap-1 bg-tinto-oscuro pt-7 pr-4 pb-8 pl-3.5 max-[960px]:w-full max-[960px]:flex-row max-[960px]:flex-wrap max-[960px]:px-3 max-[960px]:py-2.5"
           aria-label="Panel"
@@ -54,6 +58,7 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
             </Link>
           ))}
         </nav>
+        {/* CONTENIDO: título de la pantalla, botones de acción opcionales (prop "acciones") y el contenido de cada página. */}
         <main className="max-w-[1640px] min-w-0 flex-1 pt-[30px] pr-8 pb-14 pl-9 max-[960px]:px-4 max-[960px]:pt-6">
           <div className="mb-6 flex min-h-[52px] items-center justify-between gap-5 max-[960px]:flex-wrap">
             <h1 className="font-titulo text-[44px] leading-[1.1] font-bold text-tinto-texto capitalize max-[960px]:text-4xl">{titulo}</h1>
@@ -62,6 +67,7 @@ export default function AdminLayout({ titulo, acciones, children }: { titulo: st
           {children}
         </main>
       </div>
+      {/* PIE compartido. */}
       <Pie />
     </div>
   )

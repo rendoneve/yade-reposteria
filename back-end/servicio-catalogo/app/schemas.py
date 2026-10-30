@@ -104,16 +104,20 @@ class ConteoOut(BaseModel):
 # Las captura el administrador o las deja un cliente sobre una cita terminada.
 class ResenaIn(BaseModel):
     nombre_cliente: str = Field(min_length=1, max_length=100)
-    descripcion: str = Field(min_length=1)
+    descripcion: str = Field(min_length=1, max_length=2000)
     producto_ids: list[int] = Field(min_length=1, max_length=20)
     fecha: date | None = None  # si no se manda, la BD pone la fecha de hoy
+    calificacion: int | None = Field(default=None, ge=1, le=5)
+    aprobada: bool = True  # lo que captura el administrador sale publicado
 
 
 class ResenaUpdate(BaseModel):
     nombre_cliente: str | None = Field(default=None, min_length=1, max_length=100)
-    descripcion: str | None = Field(default=None, min_length=1)
+    descripcion: str | None = Field(default=None, min_length=1, max_length=2000)
     producto_ids: list[int] | None = Field(default=None, min_length=1, max_length=20)
     fecha: date | None = None
+    calificacion: int | None = Field(default=None, ge=1, le=5)
+    aprobada: bool | None = None  # False = ocultar / dejar pendiente
 
 
 class MiResenaIn(BaseModel):
@@ -121,6 +125,7 @@ class MiResenaIn(BaseModel):
 
     cita_id: int
     descripcion: str = Field(min_length=1, max_length=2000)
+    calificacion: int = Field(ge=1, le=5)
 
 
 class ProductoResenaOut(BaseModel):
@@ -140,3 +145,13 @@ class ResenaOut(BaseModel):
     productos: list[ProductoResenaOut]
     cita_id: int | None
     usuario_id: int | None
+    aprobada: bool
+    calificacion: int | None
+
+
+class ResumenResenasOut(BaseModel):
+    """Para el sitio: cuántas reseñas publicadas hay y su promedio de estrellas."""
+
+    total: int
+    con_calificacion: int
+    promedio: float | None

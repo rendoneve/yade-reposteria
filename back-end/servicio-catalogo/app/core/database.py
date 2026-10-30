@@ -107,6 +107,12 @@ ACTUALIZACIONES = [
     # El catálogo filtra por categoría y ordena por fecha: un solo índice para ambas cosas
     "CREATE INDEX IF NOT EXISTS ix_productos_categoria_fecha ON catalogo.productos (categoria_id, created_at DESC)",
     "DROP INDEX IF EXISTS catalogo.ix_productos_categoria",
+    # Moderación y calificación de reseñas. Las existentes quedan publicadas (DEFAULT TRUE).
+    "ALTER TABLE catalogo.resenas ADD COLUMN IF NOT EXISTS aprobada BOOLEAN NOT NULL DEFAULT TRUE",
+    "ALTER TABLE catalogo.resenas ADD COLUMN IF NOT EXISTS calificacion SMALLINT",
+    "ALTER TABLE catalogo.resenas DROP CONSTRAINT IF EXISTS ck_resenas_calificacion",
+    "ALTER TABLE catalogo.resenas ADD CONSTRAINT ck_resenas_calificacion CHECK (calificacion BETWEEN 1 AND 5)",
+    "CREATE INDEX IF NOT EXISTS ix_resenas_aprobada_fecha ON catalogo.resenas (aprobada, fecha DESC, id DESC)",
 ]
 
 

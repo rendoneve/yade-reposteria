@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Actívalo solo si el gateway NO está expuesto directo a internet.
     confiar_x_forwarded_for: bool = False
 
+    # Tamaño máximo del cuerpo de una petición (bytes). El gateway lo lee completo antes de
+    # reenviarlo, así que sin tope cualquiera podría llenarle la memoria. Las imágenes tienen el suyo.
+    max_cuerpo_bytes: int = 256 * 1024
+    max_cuerpo_imagenes_bytes: int = 6 * 1024 * 1024  # el servicio de catálogo acepta 5 MB por imagen
+
     @property
     def lista_cors(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

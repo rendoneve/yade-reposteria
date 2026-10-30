@@ -1,12 +1,16 @@
 """Subida de imágenes a un bucket compatible con S3 (p. ej. Neon Object Storage)."""
 
+import logging
 import uuid
 from functools import cache
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import settings
+
+log = logging.getLogger(__name__)
 
 
 def configurado() -> bool:
@@ -47,3 +51,26 @@ def subir(contenido: bytes, content_type: str, extension: str) -> str:
         CacheControl="public, max-age=31536000, immutable",
     )
     return f"{settings.s3_public_url.rstrip('/')}/{clave}"
+
+
+def clave_de(url: str | None) -> str | None:
+    """Clave del archivo en el bucket si la URL es una imagen subida por este sistema; si no, None."""
+    if not url or not configurado():
+        return None
+    base = settings.s3_public_url.rstrip("/") + "/"
+    prefijo = settings.s3_prefijo.strip("/")
+    if not url.startswith(base):
+        return None
+    clave = url[len(base):]
+    return clave if clave.startswith(f"{prefijo}/") and ".." not in clave else None
+
+
+def borrar(url: str | None) -> None:
+    """Quita del bucket una imagen que ya no usa nadie. Se llama en segundo plano; si falla solo se avisa."""
+    clave = clave_de(url)
+    if clave is None:
+        return
+    try:
+        _cliente().delete_object(Bucket=settings.s3_bucket, Key=clave)
+    except (BotoCoreError, ClientError) as exc:
+        log.warning("No se pudo borrar la imagen %s del bucket: %s", clave, exc)

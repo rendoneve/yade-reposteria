@@ -1,7 +1,7 @@
 import heroCatalogo from '../assets/img/hero-catalogo.webp'
 import heroInicio from '../assets/img/hero-inicio.webp'
 import logoYade from '../assets/img/logo-yade.png'
-import { api, type Negocio } from './api'
+import { api, type Horario, type Negocio } from './api'
 import { actualizarEnCache } from './cache'
 import { useDatos } from './useDatos'
 
@@ -65,4 +65,54 @@ export function useNegocio() {
     catalogoLineas: lineas(n?.texto_catalogo || CATALOGO_TEXTO_POR_DEFECTO),
     banner: n?.banner_url ?? null,
   }
+}
+
+/* ¿Está abierto ahora? Se calcula con la hora de Sinaloa (donde está el negocio), no la del visitante. */
+const ZONA_NEGOCIO = 'America/Mazatlan'
+const DIAS_CORTOS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const formatoZona = new Intl.DateTimeFormat('en-US', {
+  timeZone: ZONA_NEGOCIO, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+
+const aMinutos = (hora: string) => {
+  const [h, m] = hora.split(':').map(Number)
+  return h * 60 + m
+}
+const textoHora = (hora: string) => {
+  const [h, m] = hora.split(':').map(Number)
+  const sufijo = h >= 12 ? 'pm' : 'am'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${sufijo}`
+}
+
+export type EstadoHoy = { abierto: boolean; titulo: string; detalle: string } | null
+
+export function estadoHoy(horarios: Horario[] | undefined, ahora = new Date()): EstadoHoy {
+  // Un negocio sin horarios configurados (todos cerrados) no muestra nada, en vez de "cerrado" siempre
+  if (!horarios || horarios.every((h) => h.cerrado || !h.abre || !h.cierra)) return null
+  const partes = Object.fromEntries(formatoZona.formatToParts(ahora).map((p) => [p.type, p.value]))
+  const dia = DIAS_CORTOS.indexOf(partes.weekday)
+  const minutos = Number(partes.hour) * 60 + Number(partes.minute)
+  const hoy = horarios.find((h) => h.dia_semana === dia)
+  if (hoy && !hoy.cerrado && hoy.abre && hoy.cierra) {
+    const abre = aMinutos(hoy.abre)
+    const cierra = aMinutos(hoy.cierra)
+    if (minutos >= abre && minutos < cierra) {
+      return { abierto: true, titulo: 'Abierto ahora', detalle: `Hoy hasta las ${textoHora(hoy.cierra)}` }
+    }
+    if (minutos < abre) {
+      return { abierto: false, titulo: 'Abrimos hoy', detalle: `A las ${textoHora(hoy.abre)}` }
+    }
+  }
+  // Ya cerró o hoy no abre: busca el siguiente día con horario
+  for (let i = 1; i <= 7; i++) {
+    const h = horarios.find((x) => x.dia_semana === (dia + i) % 7)
+    if (h && !h.cerrado && h.abre) {
+      return {
+        abierto: false,
+        titulo: 'Cerrado por ahora',
+        detalle: `${i === 1 ? 'Mañana' : h.dia} abrimos a las ${textoHora(h.abre)}`,
+      }
+    }
+  }
+  return null
 }

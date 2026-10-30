@@ -23,8 +23,11 @@ function useAvisoTemporal() {
 export default function Perfil() {
   const { usuario } = useSesion()
   return (
+    // PANTALLA "MI PERFIL" (pestaña de la cuenta del cliente): dos tarjetas independientes.
     <CuentaLayout titulo="Mi cuenta" menu>
+      {/* Tarjeta 1 · MIS DATOS: nombre, correo y teléfono. */}
       {usuario && <FormDatos usuario={usuario} />}
+      {/* Tarjeta 2 · CONTRASEÑA: cambio pidiendo la actual y confirmando la nueva. */}
       <FormPassword />
     </CuentaLayout>
   )
@@ -59,6 +62,7 @@ function FormDatos({ usuario }: { usuario: Usuario }) {
   }
 
   return (
+    // Formulario de datos personales.
     <form className={tarjeta} onSubmit={enviar}>
       <h2 className={titulo}>Mis datos</h2>
       <label className={campoPublico}>
@@ -116,6 +120,7 @@ function FormPassword() {
   }
 
   return (
+    // Formulario de cambio de contraseña (limpia los campos al terminar).
     <form className={tarjeta} onSubmit={enviar}>
       <h2 className={titulo}>Contraseña</h2>
       <label className={campoPublico}>

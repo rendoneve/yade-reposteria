@@ -1,7 +1,8 @@
 """Horarios del negocio, pedidos a servicio-negocio por HTTP y guardados un minuto en memoria.
 
-Si servicio-negocio no responde se usan los últimos horarios conocidos; si nunca se pudieron
-leer, devuelve None y la cita se acepta sin validar el horario (se avisa en el log).
+Si servicio-negocio no responde se usan los últimos horarios conocidos. Si nunca se pudieron leer:
+- horarios(estricto=True) (al guardar una cita) responde 503 en lugar de aceptarla sin validar la hora;
+- horarios() devuelve None (la consulta de disponibilidad deja escoger cualquier hora).
 """
 
 import logging
@@ -10,6 +11,7 @@ import time
 from datetime import time as Hora
 
 import httpx
+from fastapi import HTTPException, status
 
 from app.core.config import settings
 
@@ -38,7 +40,7 @@ def _leer() -> dict[int, tuple[Hora, Hora] | None]:
     return horarios
 
 
-def horarios() -> dict[int, tuple[Hora, Hora] | None] | None:
+def horarios(estricto: bool = False) -> dict[int, tuple[Hora, Hora] | None] | None:
     """{dia_semana (0 = domingo): (abre, cierra) o None si cierra}.
 
     Devuelve None si los horarios no se conocen o si no se han configurado (todos los días
@@ -55,6 +57,11 @@ def horarios() -> dict[int, tuple[Hora, Hora] | None] | None:
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             log.warning("No se pudieron leer los horarios del negocio: %s", exc)
             if guardado is None:
+                if estricto:
+                    raise HTTPException(
+                        status.HTTP_503_SERVICE_UNAVAILABLE,
+                        "No se pudo consultar el horario del negocio, intenta más tarde",
+                    )
                 return None
     datos = guardado[1]
     return datos if any(v is not None for v in datos.values()) else None

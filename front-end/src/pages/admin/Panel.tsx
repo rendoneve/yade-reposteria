@@ -25,17 +25,21 @@ export default function Panel() {
   const inventario = conteoInventario(stats.datos?.inventario ?? null)
 
   return (
+    // PANEL DE INICIO DEL ADMIN: resumen del negocio con datos de /estadisticas (agrega varios servicios).
     <AdminLayout titulo={`Bienvenide, ${nombre}`}>
+      {/* ÁREA 1 · TARJETAS DE CIFRAS: productos en catálogo, citas próximas y citas terminadas. */}
       <div className="mb-5 grid grid-cols-3 gap-4 max-[960px]:grid-cols-1">
         <Stat titulo="Productos en catálogo" valor={stats.datos?.productos_en_catalogo} cargando={stats.cargando} />
         <Stat titulo="Citas próximas" valor={stats.datos?.citas_proximas} cargando={stats.cargando} />
         <Stat titulo="Citas terminadas" valor={stats.datos?.citas_terminadas} cargando={stats.cargando} />
       </div>
+      {/* Errores: del endpoint completo o de algún servicio en particular (el resto del panel sigue funcionando). */}
       {stats.error && <MensajeError texto={stats.error} reintentar={stats.recargar} />}
       {stats.datos && Object.entries(stats.datos.errores).map(([servicio, mensaje]) => (
         <MensajeError key={servicio} texto={`${servicio}: ${mensaje}`} />
       ))}
 
+      {/* ÁREA 2 · CITAS PRÓXIMAS: tabla con las siguientes citas (teléfono con enlace para llamar) y acceso a "Ver todas". */}
       <section className={`${tarjetaAdmin} px-7 pt-[26px] pb-[22px]`}>
         <div className="flex items-baseline justify-between gap-4">
           <h2 className={tituloTarjetaAdmin}>CITAS PRÓXIMAS</h2>
@@ -61,7 +65,9 @@ export default function Panel() {
         {stats.datos?.citas_siguientes.length === 0 && <Vacio texto="No hay citas próximas." />}
       </section>
 
+      {/* ÁREAS 3 y 4 · dos tarjetas lado a lado (apiladas en celular). */}
       <div className="grid grid-cols-[843fr_565fr] gap-4 max-[960px]:grid-cols-1">
+        {/* ÁREA 3 · ACTIVIDAD RECIENTE: últimos movimientos (citas, productos, reseñas) de servicio-actividad. */}
         <section className={`${tarjetaAdmin} pt-[22px] pr-[26px] pb-[22px] pl-[22px]`}>
           <div className="flex items-baseline justify-between">
             <h2 className={tituloTarjetaAdmin}>Actividad Reciente</h2>
@@ -88,6 +94,7 @@ export default function Panel() {
           {stats.datos && actividad.length === 0 && <Vacio texto="Sin movimientos todavía." />}
         </section>
 
+        {/* ÁREA 4 · USO DE INVENTARIO: barras con cuántos productos hay en stock, bajo pedido y próximamente. */}
         <section className={`${tarjetaAdmin} flex flex-col py-[22px] pr-7 pl-9`}>
           <h2 className={tituloTarjetaAdmin}>Uso de inventario</h2>
           {stats.cargando && <Cargando />}
@@ -112,6 +119,7 @@ export default function Panel() {
   )
 }
 
+// Tarjeta de una cifra (muestra "…" mientras carga).
 function Stat({ titulo, valor, cargando }: { titulo: string; valor: number | null | undefined; cargando: boolean }) {
   return (
     <section className={`${tarjetaCrema} flex h-[140px] flex-col px-6 py-5`}>
@@ -121,6 +129,7 @@ function Stat({ titulo, valor, cargando }: { titulo: string; valor: number | nul
   )
 }
 
+// Convierte los totales del backend en las filas de las barras de inventario.
 function conteoInventario(productos: { total: number; stock: number; 'bajo pedido': number; proximamente: number } | null) {
   const total = productos?.total || 1
   const filas = [

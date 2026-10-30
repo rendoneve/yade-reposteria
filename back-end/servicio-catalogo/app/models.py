@@ -1,7 +1,21 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Table, Text, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Table,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import SCHEMA, Base
@@ -71,6 +85,10 @@ class Resena(Base):
     # Reseñas que deja un cliente con cuenta: su usuario (auth) y la cita terminada (citas), sin FK
     usuario_id: Mapped[int | None] = mapped_column(Integer)
     cita_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+    # Moderación: las reseñas de clientes quedan pendientes (False) hasta que el administrador las aprueba.
+    # Las que ya existían y las que captura el administrador salen publicadas.
+    aprobada: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    calificacion: Mapped[int | None] = mapped_column(SmallInteger)  # 1 a 5 estrellas
 
     productos: Mapped[list[Producto]] = relationship(
         secondary=resena_producto, lazy="selectin", order_by=Producto.nombre

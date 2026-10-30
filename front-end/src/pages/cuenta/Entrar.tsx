@@ -13,6 +13,7 @@ export default function Entrar() {
   const [enviando, setEnviando] = useState(false)
   const siguiente = rutaSiguiente(query)
 
+  // Inicia sesión; tras entrar redirige a ?siguiente= (si es una ruta interna válida) o al panel que corresponda al rol.
   const enviar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
@@ -31,7 +32,9 @@ export default function Entrar() {
   const registro = `/registro${siguiente ? `?siguiente=${encodeURIComponent(siguiente)}` : ''}`
 
   return (
+    // PANTALLA DE ENTRADA DE CLIENTES (el admin usa /login).
     <CuentaLayout titulo="Iniciar sesión">
+      {/* Formulario: usuario/correo + contraseña, error y enlace a crear cuenta conservando ?siguiente=. */}
       <form className={tarjetaCuenta} onSubmit={enviar}>
         <p className="font-texto text-base leading-normal text-texto-secundario">
           Entra para ver tus citas, cancelarlas y dejar tu reseña.

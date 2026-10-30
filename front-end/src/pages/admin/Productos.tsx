@@ -49,6 +49,7 @@ const gridTarjetas =
 
 /* ADMINISTRADOR productos (Figma 37:258): tarjetas de categorías. Al abrir una
    categoría se muestran sus productos con el mismo diseño de tarjeta. */
+// Según la URL muestra las categorías (/admin/productos) o los productos de una categoría (/admin/productos/ID).
 export default function Productos() {
   const { path } = useRuta();
   const id = Number(path.split("/")[3]) || null;
@@ -57,6 +58,7 @@ export default function Productos() {
 
 /* ---------- Categorías ---------- */
 
+// PANTALLA 1 · CATEGORÍAS: cuadrícula de tarjetas; tocar una abre sus productos y el lápiz la edita.
 function Categorias() {
   // Misma clave y cargador que el catálogo público (lib/datos.ts): comparten caché
   const categorias = useDatos(CATEGORIAS, cargarCategorias);
@@ -112,6 +114,7 @@ function Categorias() {
   );
 }
 
+// VENTANA para crear / editar / eliminar una categoría (nombre e imagen). No deja eliminar si tiene productos.
 function FormCategoria({
   categoria,
   onCerrar,
@@ -227,6 +230,7 @@ function FormCategoria({
 
 /* ---------- Productos de una categoría ---------- */
 
+// PANTALLA 2 · PRODUCTOS DE UNA CATEGORÍA: tarjetas con precio y disponibilidad; "Añadir producto" y lápiz para editar.
 function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
   // La categoría sale de la lista que ya está en caché (no hace falta otra petición)
   const categorias = useDatos(CATEGORIAS, cargarCategorias);
@@ -292,6 +296,7 @@ function ProductosDeCategoria({ categoriaId }: { categoriaId: number }) {
   );
 }
 
+// VENTANA para crear / editar / eliminar un producto: nombre, descripción, precio, disponibilidad, categoría, imagen y etiquetas.
 function FormProducto({
   producto,
   categoriaId,
@@ -485,6 +490,7 @@ function FormProducto({
 
 /* ---------- Tarjeta (Figma 37:649) ---------- */
 
+// Tarjeta reutilizada por categorías y productos (foto, título, subtítulo y botón de editar).
 function TarjetaAdmin({
   imagen,
   titulo,
@@ -549,6 +555,7 @@ function TarjetaAdmin({
 const foto =
   "h-44 w-full flex-none object-cover transition-transform duration-200 group-hover:scale-[1.03]";
 
+// Foto de la tarjeta; sin imagen muestra un degradado.
 function Foto({ src }: { src: string | null }) {
   return src ? (
     <img className={foto} src={src} alt="" loading="lazy" />

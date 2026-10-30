@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     internal_api_key: str  # clave para llamadas entre servicios
+    auth_service_url: str = "http://127.0.0.1:8001"  # para comprobar que la cuenta sigue activa
     # Servicios a los que se les piden datos para las estadísticas
     catalogo_service_url: str = "http://127.0.0.1:8002"
     citas_service_url: str = "http://127.0.0.1:8003"

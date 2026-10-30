@@ -47,23 +47,47 @@ def _validar_futura(fecha: datetime) -> None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "La fecha de la cita ya pasó")
 
 
-def _validar_agenda(db: Session, fecha: datetime) -> None:
+def _validar_agenda(
+    db: Session, fecha: datetime, excepto_id: int | None = None, solo_encimes: bool = False
+) -> None:
     """La cita debe caer en el horario del negocio y no encimarse con otras.
-    Se llama dentro de la transacción que guarda la cita, con el candado de la agenda tomado."""
-    if fecha > datetime.now(UTC) + timedelta(days=settings.dias_maximos_agenda):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            f"Solo se puede agendar con hasta {settings.dias_maximos_agenda} días de anticipación",
-        )
-    horarios = negocio.horarios()
-    if horarios is not None and (motivo := agenda.fuera_de_horario(fecha, horarios)):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, motivo)
+    Se llama dentro de la transacción que guarda la cita, con el candado de la agenda tomado.
+    excepto_id: la cita que se está editando (no cuenta contra sí misma).
+    solo_encimes: solo revisa que la hora esté libre (al reactivar una cita sin cambiarle la fecha)."""
+    if not solo_encimes:
+        if fecha > datetime.now(UTC) + timedelta(days=settings.dias_maximos_agenda):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"Solo se puede agendar con hasta {settings.dias_maximos_agenda} días de anticipación",
+            )
+        # estricto: si no se pueden leer los horarios se rechaza la cita, no se acepta a ciegas
+        horarios = negocio.horarios(estricto=True)
+        if horarios is not None and (motivo := agenda.fuera_de_horario(fecha, horarios)):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, motivo)
     repo.bloquear_agenda(db)
-    ocupadas = repo.fechas_ocupadas(db, fecha, fecha + agenda.DURACION)
+    ocupadas = repo.fechas_ocupadas(db, fecha, fecha + agenda.DURACION, excepto_id)
     if sum(agenda.se_enciman(fecha, o) for o in ocupadas) >= settings.citas_simultaneas:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Esa hora ya está ocupada. Elige otra hora disponible."
         )
+
+
+def _revisar_agenda_admin(
+    db: Session, cita: Cita | None, fecha: datetime, estado: str, forzar: bool
+) -> None:
+    """Las citas del administrador siguen las mismas reglas de agenda que las del sitio, salvo que
+    mande ?forzar=true. Solo importa si la cita ocupa horario (próximo / en proceso) y cambió algo."""
+    if forzar or estado not in repo.ACTIVAS:
+        return
+    if cita is not None:
+        cambia_fecha = fecha != cita.fecha
+        if not cambia_fecha and cita.estado in repo.ACTIVAS:
+            return  # no se movió nada que afecte la agenda
+    else:
+        cambia_fecha = True
+    if cambia_fecha and estado == "proximo":
+        _validar_futura(fecha)
+    _validar_agenda(db, fecha, excepto_id=cita.id if cita else None, solo_encimes=not cambia_fecha)
 
 
 def _productos(ids: list[int]) -> list[CitaProducto]:
@@ -210,9 +234,18 @@ def resumen_admin(admin: Admin, db: DB):
 
 
 @router.post("/admin", response_model=CitaOut, status_code=status.HTTP_201_CREATED)
-def capturar_cita(datos: CitaAdminIn, admin: Admin, db: DB, tareas: BackgroundTasks):
-    """Cita registrada por el administrador (por teléfono, en sucursal, etc.)."""
-    cita = Cita(**datos.model_dump(exclude={"producto_ids"}), productos=_productos(datos.producto_ids))
+def capturar_cita(
+    datos: CitaAdminIn,
+    admin: Admin,
+    db: DB,
+    tareas: BackgroundTasks,
+    forzar: bool = Query(default=False, description="Saltar las reglas de agenda (horario, encimes, fecha futura)"),
+):
+    """Cita registrada por el administrador (por teléfono, en sucursal, etc.).
+    Si ocupa horario, se valida igual que una cita del sitio."""
+    productos = _productos(datos.producto_ids)
+    _revisar_agenda_admin(db, None, datos.fecha, datos.estado, forzar)
+    cita = Cita(**datos.model_dump(exclude={"producto_ids"}), productos=productos)
     db.add(cita)
     db.commit()
     tareas.add_task(
@@ -227,11 +260,21 @@ def obtener_cita(cita_id: int, admin: Admin, db: DB):
 
 
 @router.patch("/{cita_id}", response_model=CitaOut)
-def editar_cita(cita_id: int, datos: CitaUpdate, admin: Admin, db: DB, tareas: BackgroundTasks):
+def editar_cita(
+    cita_id: int,
+    datos: CitaUpdate,
+    admin: Admin,
+    db: DB,
+    tareas: BackgroundTasks,
+    forzar: bool = Query(default=False, description="Saltar las reglas de agenda"),
+):
     cita = _obtener_o_404(db, cita_id)
     cambios = datos.model_dump(exclude_unset=True)
     if (ids := cambios.pop("producto_ids", None)) is not None:
         cita.productos = _productos(ids)
+    _revisar_agenda_admin(
+        db, cita, cambios.get("fecha") or cita.fecha, cambios.get("estado") or cita.estado, forzar
+    )
     for campo, valor in cambios.items():
         setattr(cita, campo, valor)
     db.commit()
@@ -245,9 +288,18 @@ def editar_cita(cita_id: int, datos: CitaUpdate, admin: Admin, db: DB, tareas: B
 
 
 @router.patch("/{cita_id}/estado", response_model=CitaOut)
-def cambiar_estado(cita_id: int, datos: EstadoIn, admin: Admin, db: DB, tareas: BackgroundTasks):
+def cambiar_estado(
+    cita_id: int,
+    datos: EstadoIn,
+    admin: Admin,
+    db: DB,
+    tareas: BackgroundTasks,
+    forzar: bool = Query(default=False, description="Saltar las reglas de agenda"),
+):
     cita = _obtener_o_404(db, cita_id)
     anterior = cita.estado
+    # Reabrir una cita cancelada/terminada vuelve a ocupar su hora: no puede encimarse con otra
+    _revisar_agenda_admin(db, cita, cita.fecha, datos.estado, forzar)
     cita.estado = datos.estado
     db.commit()
     tareas.add_task(

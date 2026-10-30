@@ -13,6 +13,7 @@ export default function Registro() {
   const [enviando, setEnviando] = useState(false)
   const siguiente = rutaSiguiente(query)
 
+  // Valida que las contraseñas coincidan, crea la cuenta e inicia sesión automáticamente.
   const enviar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
@@ -41,7 +42,9 @@ export default function Registro() {
   const entrar = `/entrar${siguiente ? `?siguiente=${encodeURIComponent(siguiente)}` : ''}`
 
   return (
+    // PANTALLA DE REGISTRO DE CLIENTES.
     <CuentaLayout titulo="Crear cuenta">
+      {/* Formulario de alta: datos personales (nombre, usuario, correo, teléfono opcional) y contraseña con confirmación. */}
       <form className={tarjetaCuenta} onSubmit={enviar}>
         <label className={campoPublico}>
           Nombre completo
@@ -72,6 +75,7 @@ export default function Registro() {
             <input className={controlPublico} name="confirmar" type="password" required minLength={8} maxLength={128} autoComplete="new-password" />
           </label>
         </div>
+        {/* Error del servidor, botón de crear cuenta y enlace a "Entrar". */}
         {error && <p className={errorPublico} role="alert">{error}</p>}
         <button className={botonOscuro} type="submit" disabled={enviando}>
           {enviando ? 'Creando cuenta…' : 'Crear cuenta'}

@@ -40,6 +40,7 @@ export default function Configuracion() {
   )
 }
 
+// Formulario único: sube las imágenes nuevas, guarda horarios y luego los datos del negocio; al terminar actualiza el sitio sin recargar.
 function FormNegocio({ negocio }: { negocio: Negocio }) {
   const { actualizar } = useNegocio()
   const [logo, setLogo] = useState<CambioImagen>()
@@ -114,8 +115,10 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
   }
 
   return (
+    // FORMULARIO DE CONFIGURACIÓN: cada tarjeta controla una parte del sitio público.
     <form onSubmit={guardar}>
       <div className="grid grid-cols-2 gap-x-6 max-[1200px]:grid-cols-1">
+        {/* TARJETA IDENTIDAD: nombre y logo (encabezado y pie de todo el sitio). */}
         <Seccion titulo="Identidad">
           <label className={campoAdmin}>
             Nombre del negocio
@@ -128,6 +131,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </div>
         </Seccion>
 
+        {/* TARJETA HERO DE INICIO: texto e imagen de la portada. */}
         <Seccion titulo="Hero de inicio">
           <label className={campoAdmin}>
             Texto
@@ -141,6 +145,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </div>
         </Seccion>
 
+        {/* TARJETA HERO DEL MENÚ: título e imagen de la página Menú. */}
         <Seccion titulo="Hero del menú">
           <label className={campoAdmin}>
             Texto
@@ -154,6 +159,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </div>
         </Seccion>
 
+        {/* TARJETA ACERCA DE: historia del negocio y banner. */}
         <Seccion titulo="Acerca de">
           <label className={campoAdmin}>
             Historia del negocio
@@ -166,6 +172,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </div>
         </Seccion>
 
+        {/* TARJETA CONTACTO: WhatsApp (botones de contacto), ubicación y mapa. */}
         <Seccion titulo="Contacto">
           <label className={campoAdmin}>
             WhatsApp
@@ -183,6 +190,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
         </Seccion>
       </div>
 
+      {/* TARJETA HORARIOS: días abiertos y horas. De aquí salen la agenda de citas y el "abierto ahora" del inicio. */}
       <Seccion titulo="Horarios">
         <ul className="flex flex-col">
           {horarios.map((h) => (
@@ -206,6 +214,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
         </ul>
       </Seccion>
 
+      {/* BARRA DE GUARDADO fija abajo: error, confirmación y botón. */}
       <div className="sticky bottom-0 z-1 -mx-2 flex items-center justify-end gap-4 bg-beige/95 px-2 py-3">
         {error && <p className={errorAdmin} role="alert">{error}</p>}
         {guardado && <p className="font-ui text-[13px] font-semibold text-exito" role="status">Cambios guardados</p>}
@@ -217,6 +226,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
   )
 }
 
+// Tarjeta con título que agrupa campos.
 function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <section className={tarjeta}>

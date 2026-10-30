@@ -6,6 +6,7 @@ import { leerAvisos, quitarAviso, suscribirAvisos } from '../lib/avisos'
 export default function Avisos() {
   const avisos = useSyncExternalStore(suscribirAvisos, leerAvisos)
   return (
+    // Pila de avisos en la esquina inferior derecha; cada uno se puede cerrar y desaparece solo.
     <div className="pointer-events-none fixed right-4 bottom-4 z-50 flex w-[min(360px,calc(100%-32px))] flex-col gap-2" aria-live="polite">
       {avisos.map((a) => (
         <div

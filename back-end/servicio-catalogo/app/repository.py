@@ -112,14 +112,33 @@ def listar_resenas(
     usuario_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
+    aprobada: bool | None = None,
 ) -> list[Resena]:
     stmt = select(Resena).options(CARGA_RESENA)
+    if aprobada is not None:
+        stmt = stmt.where(Resena.aprobada == aprobada)
     if producto_id is not None:
         stmt = stmt.where(Resena.productos.any(Producto.id == producto_id))
     if usuario_id is not None:
         stmt = stmt.where(Resena.usuario_id == usuario_id)
     stmt = stmt.order_by(Resena.fecha.desc(), Resena.id.desc()).limit(limit).offset(offset)
     return list(db.scalars(stmt).unique())
+
+
+def resumen_resenas(db: Session) -> dict:
+    """Total de reseñas publicadas y promedio de estrellas (solo cuentan las que tienen calificación)."""
+    total, con_calificacion, promedio = db.execute(
+        select(
+            func.count(Resena.id),
+            func.count(Resena.calificacion),
+            func.avg(Resena.calificacion),
+        ).where(Resena.aprobada.is_(True))
+    ).one()
+    return {
+        "total": total,
+        "con_calificacion": con_calificacion,
+        "promedio": round(float(promedio), 1) if promedio is not None else None,
+    }
 
 
 def resena_de_cita(db: Session, cita_id: int) -> int | None:
@@ -131,3 +150,14 @@ def productos_por_id(db: Session, ids: list[int]) -> list[Producto]:
     if not ids:
         return []
     return list(db.scalars(select(Producto).options(*_SOLO_NOMBRE).where(Producto.id.in_(ids))))
+
+
+# ---------- Imágenes ----------
+def imagen_en_uso(db: Session, url: str | None) -> bool:
+    """¿Algún producto o categoría sigue usando esta imagen? (para no borrarla del bucket por error)"""
+    if not url:
+        return False
+    return bool(
+        db.scalar(select(Producto.id).where(Producto.imagen_url == url).limit(1))
+        or db.scalar(select(Categoria.id).where(Categoria.imagen_url == url).limit(1))
+    )

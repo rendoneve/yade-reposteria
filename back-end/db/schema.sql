@@ -96,7 +96,10 @@ CREATE TABLE IF NOT EXISTS catalogo.resenas (
     descripcion    TEXT         NOT NULL,
     fecha          DATE         NOT NULL DEFAULT CURRENT_DATE,
     usuario_id     INTEGER,                         -- auth.usuarios (sin FK: otro servicio)
-    cita_id        INTEGER                          -- citas.citas   (sin FK: otro servicio)
+    cita_id        INTEGER,                         -- citas.citas   (sin FK: otro servicio)
+    aprobada       BOOLEAN      NOT NULL DEFAULT TRUE,  -- las de clientes quedan en FALSE hasta que el admin las aprueba
+    calificacion   SMALLINT,                        -- 1 a 5 estrellas (opcional)
+    CONSTRAINT ck_resenas_calificacion CHECK (calificacion BETWEEN 1 AND 5)
 );
 
 -- Una reseña por cita
@@ -104,6 +107,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_resenas_cita
     ON catalogo.resenas (cita_id);
 CREATE INDEX IF NOT EXISTS ix_resenas_usuario
     ON catalogo.resenas (usuario_id);
+CREATE INDEX IF NOT EXISTS ix_resenas_aprobada_fecha
+    ON catalogo.resenas (aprobada, fecha DESC, id DESC);
 
 -- Una reseña habla de uno o varios productos (los de la cita)
 CREATE TABLE IF NOT EXISTS catalogo.resena_producto (

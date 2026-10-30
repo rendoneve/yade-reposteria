@@ -44,6 +44,7 @@ export default function Encabezado() {
     }
   }, [menuAbierto])
 
+  // Enlace de cuenta según la sesión: Entrar / Panel (admin) / Mi cuenta (cliente).
   const cuenta = !usuario
     ? { to: '/entrar', texto: 'Entrar' }
     : usuario.rol === 'admin'
@@ -52,6 +53,7 @@ export default function Encabezado() {
 
   return createPortal(
     <>
+      {/* BARRA FIJA: logo a la izquierda, enlaces al centro, cuenta y "Agendar cita" a la derecha. */}
       <header
         className={`fixed inset-x-0 top-0 z-40 transition-[background-color,box-shadow,padding,backdrop-filter] duration-300 ease-suave ${
           solido
@@ -70,6 +72,7 @@ export default function Encabezado() {
               alt={nombre}
             />
           </Link>
+          {/* Enlaces principales (se ocultan en celular). */}
           <nav
             className="absolute top-1/2 left-1/2 flex -translate-1/2 gap-16 font-ui text-base leading-[1.2] font-semibold text-white max-[1000px]:gap-9 max-[1000px]:text-[15px] max-[760px]:hidden"
             aria-label="Principal"
@@ -112,6 +115,7 @@ export default function Encabezado() {
         </div>
       </header>
 
+      {/* PANEL MÓVIL: menú lateral con enlaces, cuenta y "Agendar cita" (Esc o tocar fuera lo cierra). */}
       {menuAbierto && (
         <div className="fixed inset-0 z-50 min-[761px]:hidden" id="menu-movil">
           <button

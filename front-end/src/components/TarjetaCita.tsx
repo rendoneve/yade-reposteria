@@ -14,6 +14,7 @@ export default function TarjetaCita({ cita, children }: { cita: Cita; children?:
   const estado = ESTADO[cita.estado]
   return (
     <article className={`${tarjetaCrema} flex flex-col gap-2.5 px-7 py-5 max-[560px]:px-5`}>
+      {/* Fecha de la cita y etiqueta de estado. */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <h3 className="font-titulo text-[26px] leading-[1.1] font-bold text-tinto-texto">{formatoFecha(cita.fecha)}</h3>
         <span className={`rounded-[13px] px-3 py-1 font-ui text-[13px] leading-none font-semibold ${estado.clase}`}>{estado.texto}</span>
@@ -21,6 +22,7 @@ export default function TarjetaCita({ cita, children }: { cita: Cita; children?:
       <p className="font-texto text-[15px] text-texto-secundario">
         Servicio: <span className="text-black">{etiquetaServicio(cita.tipo_servicio)}</span>
       </p>
+      {/* Productos pedidos, detalles y, al final, el contenido que pase quien la use (botones o formulario de reseña). */}
       {cita.productos.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Productos">
           {cita.productos.map((p) => <li key={p.producto_id} className={chipProducto}>{p.nombre}</li>)}

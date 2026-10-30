@@ -7,7 +7,7 @@ from app import repository as repo
 from app.core.actividad import registrar_actividad
 from app.core.database import get_db
 from app.core.passwords import hash_password
-from app.core.security import Admin
+from app.core.security import Admin, invalidar_cuenta
 from app.models import Usuario
 from app.schemas import UsuarioIn, UsuarioOut, UsuarioUpdate
 
@@ -74,6 +74,7 @@ def editar_usuario(
     for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
     db.commit()
+    invalidar_cuenta(usuario.id)
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó el usuario {usuario.username}", "modificacion"
     )
@@ -88,4 +89,5 @@ def eliminar_usuario(usuario_id: int, admin: Admin, db: DB, tareas: BackgroundTa
     nombre = usuario.username
     db.delete(usuario)
     db.commit()
+    invalidar_cuenta(usuario_id)
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó el usuario {nombre}", "eliminacion")

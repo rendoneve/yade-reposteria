@@ -18,6 +18,8 @@ import { CATEGORIAS, cargarCategorias, cargarEtiquetas, cargarProductos, clavePr
 import { chipFiltro, enlaceDorado, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
 import { navegar, useRuta } from '../lib/router'
 import { useNegocio } from '../lib/negocio'
+import Link from '../components/Link'
+import { rutaCotizar, useLista, vaciarLista } from '../lib/lista'
 import { useDatos } from '../lib/useDatos'
 
 const DISPONIBILIDADES: Disponibilidad[] = ['bajo pedido', 'stock', 'proximamente']
@@ -87,8 +89,11 @@ export default function Catalogo() {
   }
   const precargarCategoria = (c: Categoria) => precargar(claveProductos(c.id), cargarProductos(c.id))
 
+  const lista = useLista()
+
   return (
     <div className={pagina}>
+      {/* ÁREA 1 · HERO DEL MENÚ: título e imagen editables desde Configuración. */}
       <section className={`${hero} h-[480px] overflow-hidden bg-[linear-gradient(180deg,rgba(155,61,79,0)_-17.8%,#300e15_100%)]`}>
         {/* Foto que subió el negocio: de fondo a todo lo ancho, con degradado para que se lea el texto.
             Primera visita: mientras llega /negocio no se muestra la imagen ni el texto del diseño. */}
@@ -115,11 +120,14 @@ export default function Catalogo() {
         )}
       </section>
 
+      {/* CUERPO: panel de filtros a la izquierda y resultados a la derecha (apilados en celular). */}
       <div className="flex flex-1 items-stretch max-[760px]:flex-col">
+        {/* ÁREA 2 · PANEL DE FILTROS: categorías, rango de precio, disponibilidad y etiquetas. En celular se pliega con el botón "Filtros". */}
         <aside className="relative z-1 w-[290px] flex-none bg-beige pt-14 pr-[26px] pb-[60px] pl-[30px] shadow-[4px_-4px_18px_rgba(0,0,0,0.18)] max-[1000px]:w-[250px] max-[1000px]:pl-5 max-[760px]:w-full max-[760px]:px-5 max-[760px]:py-5 max-[760px]:shadow-none" aria-label="Filtros">
           <h2 className="mb-3 pl-[26px] font-titulo text-[34px] leading-[1.2] font-bold max-[760px]:pl-0 max-[760px]:text-[28px]">Categorías</h2>
           {categorias.error && <MensajeError texto={categorias.error} reintentar={categorias.recargar} />}
           {/* En celular las categorías van en una fila deslizable; los demás filtros se despliegan con el botón */}
+          {/* Lista de categorías (al pasar el mouse se precarga su contenido para que abra al instante). */}
           <ul className="flex flex-col gap-1.5 max-[760px]:-mx-5 max-[760px]:flex-row max-[760px]:overflow-x-auto max-[760px]:px-5 max-[760px]:pb-1">
             {categorias.datos?.map((c) => (
               <li key={c.id}>
@@ -148,8 +156,10 @@ export default function Catalogo() {
             {filtrosAbiertos ? 'Ocultar filtros' : 'Filtros'}{cantidadFiltros > 0 && ` (${cantidadFiltros})`}
           </button>
 
+          {/* Filtros secundarios: se aplican en el navegador, sin volver a pedir datos al servidor. */}
           <div id="filtros-catalogo" className={filtrosAbiertos ? '' : 'max-[760px]:hidden'}>
           <hr className={linea} />
+          {/* Rango de precio con dos controles (mínimo y máximo). */}
           <h3 className={subtitulo}>Precio</h3>
           <div className="relative mt-[18px] mb-2 h-5 w-full">
             <div className="absolute top-[9px] right-2.5 left-2.5 h-0.5 bg-tinto-oscuro/25">
@@ -177,6 +187,7 @@ export default function Catalogo() {
           </div>
 
           <hr className={linea} />
+          {/* Casillas de disponibilidad (en stock, por encargo, etc.). */}
           <h3 className={subtitulo}>Disponibilidad</h3>
           <div className="flex flex-col gap-2.5 pt-2.5 pl-4">
             {DISPONIBILIDADES.map((d) => (
@@ -188,6 +199,7 @@ export default function Catalogo() {
           </div>
 
           <hr className={linea} />
+          {/* Etiquetas del postre (sin gluten, vegano…) como botones tipo chip. */}
           <h3 className={subtitulo}>Etiquetas</h3>
           <div className="grid grid-cols-2 gap-x-2 gap-y-[9px] pt-3">
             {etiquetas.datos?.map((e) => (
@@ -206,8 +218,10 @@ export default function Catalogo() {
           </div>
         </aside>
 
+        {/* ÁREA 3 · RESULTADOS: nombre de la categoría, buscador, contador y cuadrícula de postres. */}
         <main className="flex-1 pt-9 pr-8 pb-[100px] pl-9 max-[760px]:px-4 max-[760px]:pt-7 max-[760px]:pb-[72px]">
           <h2 className="mb-5 font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-4 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Catálogo'}</h2>
+          {/* Barra superior: buscador (ignora acentos y mayúsculas), contador de resultados y "Limpiar filtros". */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2">
             <input
               type="search"
@@ -226,19 +240,33 @@ export default function Catalogo() {
               <button type="button" className={`${enlaceDorado} text-[15px]`} onClick={limpiarFiltros}>Limpiar filtros</button>
             )}
           </div>
+          {/* Estados: error de carga, sin categorías, categoría vacía o filtros sin resultados. */}
           {productos.error && <MensajeError texto={productos.error} reintentar={productos.recargar} />}
           {categorias.datos?.length === 0 && <Vacio texto="Todavía no hay categorías." />}
           {productos.datos && productos.datos.length === 0 && <Vacio texto="Esta categoría todavía no tiene postres." />}
           {productos.datos && productos.datos.length > 0 && filtrados.length === 0 && (
             <Vacio texto="No hay postres con esos filtros." />
           )}
+          {/* Cuadrícula de tarjetas (esqueletos mientras carga). Al tocar una se abre su detalle. */}
           <div className="grid grid-cols-[repeat(auto-fill,260px)] gap-x-5 gap-y-[22px] max-[760px]:justify-center">
             {(categorias.cargando || productos.cargando) && <EsqueletoPostres cantidad={6} />}
             {filtrados.map((p) => <TarjetaPostre key={p.id} producto={p} onVer={setViendo} />)}
           </div>
         </main>
       </div>
+      {/* ÁREA 4 · PIE compartido. */}
       <Pie />
+      {/* BARRA "MI LISTA PARA COTIZAR": aparece al marcar postres desde su detalle y los lleva juntos a la cita. */}
+      {lista.length > 0 && (
+        <div className="fixed inset-x-4 bottom-4 z-30 mx-auto flex max-w-[560px] items-center justify-between gap-3 rounded-2xl bg-tinto-oscuro px-5 py-3 font-ui text-sm font-semibold text-beige shadow-modal" role="status">
+          <span>{lista.length} {lista.length === 1 ? 'postre' : 'postres'} en tu lista</span>
+          <span className="flex items-center gap-3">
+            <button type="button" className="underline-offset-2 hover:underline" onClick={vaciarLista}>Vaciar</button>
+            <Link to={rutaCotizar(lista)} className="rounded-xl bg-beige px-4 py-2 text-tinto-texto hover:bg-white">Cotizar lista</Link>
+          </span>
+        </div>
+      )}
+      {/* VENTANA DE DETALLE del postre elegido. */}
       {viendo && <DetalleProducto producto={viendo} onCerrar={() => setViendo(null)} />}
     </div>
   )

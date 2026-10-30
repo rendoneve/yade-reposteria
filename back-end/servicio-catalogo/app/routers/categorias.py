@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import repository as repo
-from app.core import cache
+from app.core import almacenamiento, cache
 from app.core.actividad import registrar_actividad
 from app.core.database import get_db, leer
 from app.core.security import Admin
@@ -61,12 +61,15 @@ def editar_categoria(
 ):
     c = _obtener_o_404(db, categoria_id)
     cambios = datos.model_dump(exclude_unset=True)
+    imagen_anterior = c.imagen_url
     if cambios.get("nombre"):
         _nombre_libre(db, cambios["nombre"], excepto_id=c.id)
     for campo, valor in cambios.items():
         setattr(c, campo, valor)
     db.commit()
     cache.limpiar()
+    if imagen_anterior != c.imagen_url and not repo.imagen_en_uso(db, imagen_anterior):
+        tareas.add_task(almacenamiento.borrar, imagen_anterior)
     tareas.add_task(
         registrar_actividad, admin.username, f"Modificó la categoría {c.nombre}", "modificacion"
     )
@@ -82,7 +85,10 @@ def eliminar_categoria(categoria_id: int, admin: Admin, db: DB, tareas: Backgrou
             f"No se puede eliminar: la categoría tiene {n} producto(s). Muévelos o elimínalos primero.",
         )
     nombre = c.nombre
+    imagen = c.imagen_url
     db.delete(c)
     db.commit()
     cache.limpiar()
+    if not repo.imagen_en_uso(db, imagen):
+        tareas.add_task(almacenamiento.borrar, imagen)
     tareas.add_task(registrar_actividad, admin.username, f"Eliminó la categoría {nombre}", "eliminacion")

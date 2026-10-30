@@ -2,7 +2,16 @@
 
    Una clave = un cargador: si dos pantallas piden "categorias", las dos reciben exactamente lo mismo
    (antes Agendar no las ordenaba y, según por dónde se entrara, el Catálogo las mostraba en otro orden). */
-import { api, type Categoria, type Cita, type Etiqueta, type Producto, type ProductoOpcion, type Resena } from './api'
+import {
+  api,
+  type Categoria,
+  type Cita,
+  type Etiqueta,
+  type Producto,
+  type ProductoOpcion,
+  type Resena,
+  type ResumenResenas,
+} from './api'
 
 const porId = <T extends { id: number }>(lista: T[]) => [...lista].sort((a, b) => a.id - b.id)
 
@@ -26,3 +35,13 @@ export const cargarMisCitas = () => api<Cita[]>('/citas/mias')
 
 export const MIS_RESENAS = 'resenas:mias'
 export const cargarMisResenas = () => api<Resena[]>('/resenas/mias')
+
+// Inicio del sitio: reseñas publicadas, su promedio de estrellas y cuántos postres hay
+export const RESENAS_INICIO = 'resenas:inicio'
+export const cargarResenasInicio = () => api<Resena[]>('/resenas', { params: { limit: 9 } })
+
+export const RESUMEN_RESENAS = 'resenas:resumen'
+export const cargarResumenResenas = () => api<ResumenResenas>('/resenas/resumen')
+
+export const TOTAL_PRODUCTOS = 'productos:total'
+export const cargarTotalProductos = () => api<{ total: number }>('/productos/count')

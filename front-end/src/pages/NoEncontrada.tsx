@@ -7,6 +7,7 @@ import { botonOscuro, degradadoHero, enlaceDorado, hero, heroLinea, heroLineaChi
 export default function NoEncontrada() {
   return (
     <div className={pagina}>
+      {/* ÁREA 1 · HERO: "Error 404". */}
       <section className={`${hero} ${degradadoHero} h-[340px]`}>
         <Encabezado />
         <h1 className={`${heroTitulo} top-[120px] h-[160px]`}>
@@ -14,6 +15,7 @@ export default function NoEncontrada() {
           <span className={heroLinea}>Página no encontrada</span>
         </h1>
       </section>
+      {/* ÁREA 2 · MENSAJE amistoso con salidas útiles: ver el menú, agendar cita o volver al inicio. */}
       <main className="flex flex-1 items-start justify-center px-margen pt-[60px] pb-[100px] max-[760px]:px-4 max-[760px]:pt-10 max-[760px]:pb-20">
         <div className={`${tarjetaCrema} aparecer flex max-w-[560px] flex-col items-center gap-5 px-10 py-10 text-center max-[560px]:px-6`}>
           <p className="font-titulo text-[96px] leading-none font-bold text-dorado max-[560px]:text-7xl" aria-hidden="true">404</p>
@@ -32,6 +34,7 @@ export default function NoEncontrada() {
           <Link to="/" className={`${enlaceDorado} text-[15px]`}>← Volver al inicio</Link>
         </div>
       </main>
+      {/* ÁREA 3 · PIE compartido. */}
       <Pie />
     </div>
   )
