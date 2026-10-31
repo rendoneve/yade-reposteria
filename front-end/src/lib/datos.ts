@@ -26,6 +26,10 @@ export const claveProductos = (categoriaId: number) => `productos:categoria:${ca
 export const cargarProductos = (categoriaId: number) => () =>
   api<Producto[]>('/productos', { params: { categoria_id: categoriaId, limit: 500 } })
 
+// Menú sin categoría elegida: todos los productos juntos
+export const TODOS_PRODUCTOS = 'productos:todos'
+export const cargarTodosProductos = () => api<Producto[]>('/productos', { params: { limit: 500 } })
+
 export const OPCIONES_PRODUCTOS = 'productos:opciones'
 export const cargarOpcionesProductos = () => api<ProductoOpcion[]>('/productos/opciones')
 

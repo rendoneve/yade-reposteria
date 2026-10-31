@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import AdminLayout from '../../components/AdminLayout'
 import { Cargando, MensajeError } from '../../components/Estado'
+import TextoRico from '../../components/TextoRico'
 import SubirImagen from '../../components/SubirImagen'
+import { aplicarPeso, PESOS } from '../../lib/textoRico'
 import { api, resolverImagen, type CambioImagen, type Horario, type Negocio } from '../../lib/api'
 import { botonOscuro, campoAdmin, controlAdmin, errorAdmin, tarjetaCrema, tituloTarjetaAdmin } from '../../lib/estilos'
 import { CATALOGO_TEXTO_POR_DEFECTO, HERO_TEXTO_POR_DEFECTO, NOMBRE_POR_DEFECTO, useNegocio } from '../../lib/negocio'
@@ -126,35 +128,27 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </label>
           <div className={campoAdmin}>
             Logo
-            <SubirImagen imagenInicial={negocio.logo_url} onChange={setLogo} className="h-36" fondoOscuro />
+            <SubirImagen imagenInicial={negocio.logo_url} onChange={setLogo} proporcion={2} className="h-36" fondoOscuro />
             <span className={ayuda}>Se ve sobre fondo oscuro (encabezado y pie). Sin logo se usa el de Yade.</span>
           </div>
         </Seccion>
 
         {/* TARJETA HERO DE INICIO: texto e imagen de la portada. */}
         <Seccion titulo="Hero de inicio">
-          <label className={campoAdmin}>
-            Texto
-            <textarea className={controlAdmin} name="texto_principal" rows={3} defaultValue={negocio.texto_principal ?? ''} placeholder={HERO_TEXTO_POR_DEFECTO} />
-            <span className={ayuda}>Cada renglón es una línea del título; el primero se ve un poco más chico.</span>
-          </label>
+          <CampoTitulo nombre="texto_principal" filas={3} inicial={negocio.texto_principal ?? ''} placeholder={HERO_TEXTO_POR_DEFECTO} nota="Cada renglón es una línea del título; el primero se ve un poco más chico." />
           <div className={campoAdmin}>
             Imagen
-            <SubirImagen imagenInicial={negocio.hero_url} onChange={setHero} className="h-36" fondoOscuro />
+            <SubirImagen imagenInicial={negocio.hero_url} onChange={setHero} proporcion={16 / 9} className="h-36" fondoOscuro />
             <span className={ayuda}>De preferencia PNG con fondo transparente. Sin imagen se usa la del diseño.</span>
           </div>
         </Seccion>
 
         {/* TARJETA HERO DEL MENÚ: título e imagen de la página Menú. */}
         <Seccion titulo="Hero del menú">
-          <label className={campoAdmin}>
-            Texto
-            <textarea className={controlAdmin} name="texto_catalogo" rows={2} defaultValue={negocio.texto_catalogo ?? ''} placeholder={CATALOGO_TEXTO_POR_DEFECTO} />
-            <span className={ayuda}>Título de la página Menú. Cada renglón es una línea; el primero se ve un poco más chico.</span>
-          </label>
+          <CampoTitulo nombre="texto_catalogo" filas={2} inicial={negocio.texto_catalogo ?? ''} placeholder={CATALOGO_TEXTO_POR_DEFECTO} nota="Título de la página Menú. Cada renglón es una línea; el primero se ve un poco más chico." />
           <div className={campoAdmin}>
             Imagen
-            <SubirImagen imagenInicial={negocio.catalogo_url} onChange={setCatalogo} className="h-36" fondoOscuro />
+            <SubirImagen imagenInicial={negocio.catalogo_url} onChange={setCatalogo} proporcion={16 / 9} className="h-36" fondoOscuro />
             <span className={ayuda}>Con imagen propia se muestra a todo lo ancho, con un degradado para que se lea el texto. Sin imagen se usa la del diseño.</span>
           </div>
         </Seccion>
@@ -167,7 +161,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           </label>
           <div className={campoAdmin}>
             Banner
-            <SubirImagen imagenInicial={negocio.banner_url} onChange={setBanner} className="h-36" />
+            <SubirImagen imagenInicial={negocio.banner_url} onChange={setBanner} proporcion={16 / 9} className="h-36" />
             <span className={ayuda}>Foto horizontal de fondo para el título de "Acerca de". Se oscurece para que se lea el texto.</span>
           </div>
         </Seccion>
@@ -233,5 +227,56 @@ function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) 
       <h2 className={tituloTarjetaAdmin}>{titulo}</h2>
       {children}
     </section>
+  )
+}
+
+/* Texto de un título con barra de grosor: se selecciona una parte del texto y se elige Normal, Medio,
+   Seminegrita o Negrita. Abajo se ve cómo quedará. El texto guarda marcas {PESO|texto} (ver TextoRico). */
+function CampoTitulo({ nombre, filas, inicial, placeholder, nota }: { nombre: string; filas: number; inicial: string; placeholder: string; nota: string }) {
+  const [valor, setValor] = useState(inicial)
+  const area = useRef<HTMLTextAreaElement>(null)
+
+  const poner = (peso: number | null) => {
+    const a = area.current
+    if (!a) return
+    // Sin selección, el grosor se aplica a todo el texto
+    const [ini, fin] = a.selectionStart === a.selectionEnd ? [0, valor.length] : [a.selectionStart, a.selectionEnd]
+    const r = aplicarPeso(valor, ini, fin, peso)
+    setValor(r.texto)
+    requestAnimationFrame(() => { a.focus(); a.setSelectionRange(r.ini, r.fin) })
+  }
+
+  return (
+    <div className={campoAdmin}>
+      <label htmlFor={`titulo-${nombre}`}>Texto</label>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Grosor de la letra">
+        {PESOS.map((p) => (
+          <button
+            key={p.peso}
+            type="button"
+            className="h-7 rounded-lg border border-tinto-texto/30 bg-white px-2.5 font-ui text-[13px] text-tinto-texto hover:bg-tinto/10"
+            style={{ fontWeight: p.peso }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => poner(p.peso)}
+          >
+            {p.nombre}
+          </button>
+        ))}
+      </div>
+      <textarea
+        ref={area}
+        id={`titulo-${nombre}`}
+        className={controlAdmin}
+        name={nombre}
+        rows={filas}
+        value={valor}
+        placeholder={placeholder}
+        onChange={(e) => setValor(e.target.value)}
+      />
+      <span className={ayuda}>{nota} Selecciona una parte y elige el grosor (sin selección se aplica a todo).</span>
+      <div className="rounded-lg bg-tinto-oscuro px-4 py-3 font-titulo text-2xl leading-tight font-bold text-beige [font-variant-caps:all-small-caps]" aria-label="Vista previa">
+        {(valor.trim() || placeholder).split('\n').map((l, i) => <span key={i} className="block"><TextoRico texto={l} /></span>)}
+      </div>
+    </div>
   )
 }

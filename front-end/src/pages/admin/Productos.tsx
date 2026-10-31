@@ -185,6 +185,7 @@ function FormCategoria({
           <SubirImagen
             imagenInicial={categoria?.imagen_url}
             onChange={setImagen}
+            proporcion={4 / 3}
             className="h-44"
           />
         </div>
@@ -427,7 +428,7 @@ function FormProducto({
         </label>
         <div className={campoAdmin}>
           Imagen
-          <SubirImagen imagenInicial={producto?.imagen_url} onChange={setImagen} />
+          <SubirImagen imagenInicial={producto?.imagen_url} onChange={setImagen} proporcion={4 / 3} />
         </div>
         <fieldset className="flex flex-wrap gap-2">
           <legend className="mb-1.5 font-ui text-[13px] leading-[1.2] font-semibold text-tinto-texto">

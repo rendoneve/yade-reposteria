@@ -1,6 +1,7 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import DetalleProducto from '../components/DetalleProducto'
+import TextoRico from '../components/TextoRico'
 import Encabezado from '../components/Encabezado'
 import { EsqueletoPostres, MensajeError, Vacio } from '../components/Estado'
 import Pie from '../components/Pie'
@@ -14,7 +15,7 @@ import {
   type Producto,
 } from '../lib/api'
 import { precargar } from '../lib/cache'
-import { CATEGORIAS, cargarCategorias, cargarEtiquetas, cargarProductos, claveProductos, ETIQUETAS } from '../lib/datos'
+import { CATEGORIAS, cargarCategorias, cargarEtiquetas, cargarProductos, cargarTodosProductos, claveProductos, ETIQUETAS, TODOS_PRODUCTOS } from '../lib/datos'
 import { chipFiltro, enlaceDorado, hero, heroLinea, heroLineaChica, heroTitulo, pagina } from '../lib/estilos'
 import { navegar, useRuta } from '../lib/router'
 import { useNegocio } from '../lib/negocio'
@@ -44,14 +45,13 @@ export default function Catalogo() {
   const etiquetas = useDatos(ETIQUETAS, cargarEtiquetas)
 
   const idEnUrl = Number(query.get('categoria')) || null
-  const seleccionada =
-    categorias.datos?.find((c) => c.id === idEnUrl) ?? categorias.datos?.[0] ?? null
+  // Sin ?categoria= (o con una que ya no existe) se ven TODOS los productos, sin filtrar
+  const seleccionada = categorias.datos?.find((c) => c.id === idEnUrl) ?? null
   // Si la URL ya dice qué categoría, sus productos se piden junto con las categorías (no después)
-  // (cuando ya llegaron las categorías manda la elegida, por si la de la URL ya no existe)
   const idProductos = categorias.datos ? (seleccionada?.id ?? null) : idEnUrl
   const productos = useDatos(
-    idProductos ? claveProductos(idProductos) : null,
-    cargarProductos(idProductos ?? 0),
+    idProductos ? claveProductos(idProductos) : TODOS_PRODUCTOS,
+    idProductos ? cargarProductos(idProductos) : cargarTodosProductos,
   )
   const [viendo, setViendo] = useState<Producto | null>(null)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
@@ -82,10 +82,17 @@ export default function Catalogo() {
   const alternar = <T,>(lista: T[], valor: T) =>
     lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor]
 
+  // Tocar una categoría la filtra; tocarla otra vez quita el filtro (todos los productos)
   const elegirCategoria = (c: Categoria) => {
     setRango(null)
     setFiltrosAbiertos(false)
-    navegar(`/catalogo?categoria=${c.id}`, true)
+    navegar(c.id === seleccionada?.id ? '/catalogo' : `/catalogo?categoria=${c.id}`, true)
+  }
+  // El título "Categorías" también funciona como "ver todo"
+  const verTodos = () => {
+    setRango(null)
+    setFiltrosAbiertos(false)
+    navegar('/catalogo', true)
   }
   const precargarCategoria = (c: Categoria) => precargar(claveProductos(c.id), cargarProductos(c.id))
 
@@ -110,7 +117,7 @@ export default function Catalogo() {
           <h1 className={`${heroTitulo} top-[140px] h-[240px]`} aria-busy={cargandoNegocio}>
             {/* El primer renglón va un poco más chico, como en el diseño */}
             {!cargandoNegocio && catalogoLineas.map((l, i) => (
-              <span key={i} className={i === 0 && catalogoLineas.length > 1 ? heroLineaChica : heroLinea}>{l}</span>
+              <span key={i} className={i === 0 && catalogoLineas.length > 1 ? heroLineaChica : heroLinea}><TextoRico texto={l} /></span>
             ))}
           </h1>
         </div>
@@ -124,7 +131,18 @@ export default function Catalogo() {
       <div className="flex flex-1 items-stretch max-[760px]:flex-col">
         {/* ÁREA 2 · PANEL DE FILTROS: categorías, rango de precio, disponibilidad y etiquetas. En celular se pliega con el botón "Filtros". */}
         <aside className="relative z-1 w-[290px] flex-none bg-beige pt-14 pr-[26px] pb-[60px] pl-[30px] shadow-[4px_-4px_18px_rgba(0,0,0,0.18)] max-[1000px]:w-[250px] max-[1000px]:pl-5 max-[760px]:w-full max-[760px]:px-5 max-[760px]:py-5 max-[760px]:shadow-none" aria-label="Filtros">
-          <h2 className="mb-3 pl-[26px] font-titulo text-[34px] leading-[1.2] font-bold max-[760px]:pl-0 max-[760px]:text-[28px]">Categorías</h2>
+          <h2 className="mb-3 font-titulo text-[34px] leading-[1.2] font-bold max-[760px]:text-[28px]">
+            <button
+              type="button"
+              className="w-full rounded-lg py-0.5 pl-[26px] text-left transition-colors hover:bg-tinto/10 aria-pressed:text-tinto max-[760px]:pl-0"
+              aria-pressed={!seleccionada}
+              title="Ver todos los productos"
+              onClick={verTodos}
+              onMouseEnter={() => precargar(TODOS_PRODUCTOS, cargarTodosProductos)}
+            >
+              Categorías
+            </button>
+          </h2>
           {categorias.error && <MensajeError texto={categorias.error} reintentar={categorias.recargar} />}
           {/* En celular las categorías van en una fila deslizable; los demás filtros se despliegan con el botón */}
           {/* Lista de categorías (al pasar el mouse se precarga su contenido para que abra al instante). */}
@@ -220,7 +238,7 @@ export default function Catalogo() {
 
         {/* ÁREA 3 · RESULTADOS: nombre de la categoría, buscador, contador y cuadrícula de postres. */}
         <main className="flex-1 pt-9 pr-8 pb-[100px] pl-9 max-[760px]:px-4 max-[760px]:pt-7 max-[760px]:pb-[72px]">
-          <h2 className="mb-5 font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-4 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Catálogo'}</h2>
+          <h2 className="mb-5 font-titulo text-[66px] leading-none font-bold text-dorado [font-variant-caps:all-small-caps] max-[760px]:mb-4 max-[760px]:text-5xl">{seleccionada?.nombre ?? 'Todos los postres'}</h2>
           {/* Barra superior: buscador (ignora acentos y mayúsculas), contador de resultados y "Limpiar filtros". */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2">
             <input
@@ -243,7 +261,7 @@ export default function Catalogo() {
           {/* Estados: error de carga, sin categorías, categoría vacía o filtros sin resultados. */}
           {productos.error && <MensajeError texto={productos.error} reintentar={productos.recargar} />}
           {categorias.datos?.length === 0 && <Vacio texto="Todavía no hay categorías." />}
-          {productos.datos && productos.datos.length === 0 && <Vacio texto="Esta categoría todavía no tiene postres." />}
+          {productos.datos && productos.datos.length === 0 && <Vacio texto={seleccionada ? "Esta categoría todavía no tiene postres." : "Todavía no hay postres."} />}
           {productos.datos && productos.datos.length > 0 && filtrados.length === 0 && (
             <Vacio texto="No hay postres con esos filtros." />
           )}

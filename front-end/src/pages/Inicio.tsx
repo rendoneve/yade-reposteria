@@ -2,6 +2,7 @@ import { useState } from 'react'
 import BarraConfianza from '../components/BarraConfianza'
 import ComoFunciona from '../components/ComoFunciona'
 import DetalleProducto from '../components/DetalleProducto'
+import TextoRico from '../components/TextoRico'
 import Encabezado from '../components/Encabezado'
 import { EsqueletoPostres, MensajeError, Vacio } from '../components/Estado'
 import LlamadoFinal from '../components/LlamadoFinal'
@@ -27,7 +28,7 @@ export default function Inicio() {
   return (
     <div className={pagina}>
       {/* ÁREA 1 · HERO: portada con título del negocio (editable en Configuración), imagen y los dos botones principales. */}
-      <section className={`${hero} ${degradadoHero} font-black z-1 h-[620px] max-[760px]:overflow-hidden`}>
+      <section className={`${hero} ${degradadoHero} z-1 h-[620px] max-[760px]:overflow-hidden`}>
         {/* Primera visita: mientras llega /negocio no se muestra la imagen ni el texto del diseño,
             para que no cambien a los pocos segundos por los del negocio */}
         {cargandoNegocio ? null : heroPropio ? (
@@ -60,7 +61,7 @@ export default function Inicio() {
             {/* El primer renglón va un poco más chico, como en el diseño */}
             {!cargandoNegocio && heroLineas.map((l, i) => (
               <span key={i} className={i === 0 && heroLineas.length > 1 ? heroLineaChica : heroLinea}>
-                {l}
+                <TextoRico texto={l} />
               </span>
             ))}
           </h1>

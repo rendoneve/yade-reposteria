@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 /* Ventana modal con <dialog> nativo (Esc la cierra).
    Un clic fuera la cierra solo si no se ha escrito nada: así no se pierde un formulario a medias.
    El reset de Tailwind le quita al <dialog> el margin:auto que lo centra: por eso lleva m-auto. */
-export default function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () => void; children: ReactNode }) {
+export default function Modal({ titulo, onCerrar, children, cerrarAlFondo = true }: { titulo: string; onCerrar: () => void; children: ReactNode; cerrarAlFondo?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null)
   const modificado = useRef(false)
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function Modal({ titulo, onCerrar, children }: { titulo: string; 
       className="modal m-auto max-h-[calc(100dvh-32px)] w-[min(540px,calc(100%-32px))] overflow-y-auto rounded-[18px] bg-crema p-0 shadow-modal"
       onClose={onCerrar}
       onInput={() => { modificado.current = true }}
-      onClick={(e) => { if (e.target === ref.current && !modificado.current) ref.current?.close() }}
+      onClick={(e) => { if (cerrarAlFondo && e.target === ref.current && !modificado.current) ref.current?.close() }}
     >
       <div className="px-7 py-6 max-[560px]:px-5">
         <div className="mb-4 flex items-center justify-between gap-4">
