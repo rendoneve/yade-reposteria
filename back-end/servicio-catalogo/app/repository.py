@@ -85,8 +85,13 @@ def productos_opciones(db: Session) -> list[dict]:
 
 
 def productos_destacados(db: Session, limit: int) -> list[Producto]:
-    """Los "mas vendidos"; si no hay ninguno, los más recientes."""
-    return listar_productos(db, etiqueta="mas vendidos", limit=limit) or listar_productos(db, limit=limit)
+    """Los "mas vendidos" primero; los lugares que falten se completan con los más recientes."""
+    destacados = listar_productos(db, etiqueta="mas vendidos", limit=limit)
+    if len(destacados) < limit:
+        ids = {p.id for p in destacados}
+        recientes = listar_productos(db, limit=limit + len(ids))
+        destacados += [p for p in recientes if p.id not in ids][: limit - len(destacados)]
+    return destacados
 
 
 def contar_productos(db: Session) -> int:

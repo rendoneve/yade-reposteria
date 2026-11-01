@@ -85,7 +85,7 @@ def opciones_productos():
 
 @router.get("/destacados", response_model=list[ProductoOut])
 def productos_destacados(limit: int = Query(default=4, ge=1, le=20)):
-    """"Especiales del mes" de Inicio: los más vendidos o, si no hay, los más recientes."""
+    """"Especiales del mes" de Inicio: los más vendidos, completados con los más recientes."""
 
     return cache.obtener(
         f"productos:destacados:{limit}", lambda: leer(lambda db: [_out(p) for p in repo.productos_destacados(db, limit)])

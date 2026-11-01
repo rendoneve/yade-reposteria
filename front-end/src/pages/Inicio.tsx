@@ -21,7 +21,7 @@ const cargarDestacados = () => api<Producto[]>('/productos/destacados', { params
 /* PAGINA PRINCIPAL (Figma 1:2) */
 export default function Inicio() {
   const { heroPropio, heroImagen, heroLineas, cargando: cargandoNegocio } = useNegocio()
-  // "Especiales del mes": los más vendidos o, si no hay, los más recientes (lo resuelve el backend)
+  // "Especiales del mes": los más vendidos, completados con los más recientes (lo resuelve el backend)
   const { datos, error, cargando, recargar } = useDatos('productos:destacados', cargarDestacados)
   const [viendo, setViendo] = useState<Producto | null>(null)
 
