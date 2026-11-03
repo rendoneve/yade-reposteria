@@ -170,6 +170,41 @@ export async function subirImagen(archivo: File): Promise<string> {
   return url
 }
 
+/* ---------- Videos ---------- */
+export const TIPOS_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime']
+export const MAX_BYTES_VIDEO = 40 * 1024 * 1024
+
+/* Sube un video al bucket (POST /api/videos, servicio-catalogo) con avance de 0 a 1 y devuelve su URL.
+   Va por XMLHttpRequest (y no fetch) porque es lo que da el progreso de la subida. */
+export function subirVideo(archivo: File, alProgreso?: (avance: number) => void): Promise<string> {
+  return new Promise((ok, mal) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', new URL(API_URL + '/videos', window.location.origin).toString())
+    const token = leerToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.timeout = 180_000
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) alProgreso?.(e.loaded / e.total) }
+    xhr.onload = () => {
+      let datos: { url?: string; detail?: unknown } = {}
+      try { datos = JSON.parse(xhr.responseText) } catch { /* sin cuerpo JSON */ }
+      if (xhr.status >= 200 && xhr.status < 300 && datos.url) ok(datos.url)
+      else mal(new ErrorApi(xhr.status, typeof datos.detail === 'string' ? datos.detail : `No se pudo subir el video (${xhr.status})`))
+    }
+    xhr.onerror = () => mal(new Error('No se pudo conectar con el servidor'))
+    xhr.ontimeout = () => mal(new Error('La subida tardó demasiado. Prueba con un video más ligero.'))
+    const datos = new FormData()
+    datos.append('archivo', archivo)
+    xhr.send(datos)
+  })
+}
+
+/* Quita del almacenamiento un video que ya no se usa (si falla no pasa nada: solo queda ocupando espacio). */
+export const borrarVideo = (url: string) => api('/videos', { method: 'DELETE', params: { url } }).catch(() => undefined)
+
+/* Dónde se muestra un video del sitio (se elige en Configuración → Videos). */
+export type UbicacionVideo = 'hero_inicio' | 'seccion_inicio' | 'nosotros' | 'hero_acerca'
+export type VideoSitio = { url: string; ubicaciones: UbicacionVideo[]; titulo: string | null }
+
 /* Cambio que entrega <SubirImagen>: undefined = sin cambios, null = se quitó, File = nueva.
    Devuelve el valor para `imagen_url` (subiendo el archivo si hace falta). */
 export type CambioImagen = File | null | undefined
@@ -261,6 +296,7 @@ export type Negocio = {
   whatsapp: string | null
   ubicacion: string | null
   mapa_url: string | null
+  videos?: VideoSitio[] // puede faltar en datos guardados por una versión anterior
   horarios: Horario[]
 }
 

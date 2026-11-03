@@ -1,3 +1,5 @@
+import { VideoFondo, VideoTarjeta } from '../components/Videos'
+import { puedeAutoplay } from '../lib/videos'
 import Encabezado from '../components/Encabezado'
 import { Cargando, MensajeError } from '../components/Estado'
 import Pie from '../components/Pie'
@@ -13,7 +15,10 @@ const hora = (h: string | null) => (h ? h.slice(0, 5) : '')
 /* ACERCA DE (Figma 20:112). En el diseño solo están el hero, el encabezado y el pie;
    el contenido (y el banner del hero) sale de servicio-negocio. */
 export default function AcercaDe() {
-  const { negocio: datos, error, cargando, recargar, nombre, banner } = useNegocio()
+  const { negocio: datos, error, cargando, recargar, nombre, banner, videoDe } = useNegocio()
+  // Videos elegidos en Configuración: uno de fondo del hero y otro dentro de "Nuestra historia"
+  const videoHero = puedeAutoplay() ? videoDe('hero_acerca') : null
+  const videoNosotros = videoDe('nosotros')
   // Lunes primero
   const horarios = datos ? [...datos.horarios].sort((a, b) => ((a.dia_semana + 6) % 7) - ((b.dia_semana + 6) % 7)) : []
 
@@ -21,11 +26,17 @@ export default function AcercaDe() {
     <div className={pagina}>
       {/* ÁREA 1 · HERO: banner del negocio de fondo (si hay) y título "Conoce a <nombre>". */}
       <section
-        className={`${hero} h-[400px] ${banner ? 'bg-cover bg-center' : degradadoHero}`}
-        style={banner ? { backgroundImage: `linear-gradient(180deg, rgba(48,14,21,0.45) 0%, #300e15 100%), url("${banner}")` } : undefined}
+        className={`${hero} h-[400px] ${videoHero ? 'overflow-hidden ' : ''}${banner && !videoHero ? 'bg-cover bg-center' : degradadoHero}`}
+        style={banner && !videoHero ? { backgroundImage: `linear-gradient(180deg, rgba(48,14,21,0.45) 0%, #300e15 100%), url("${banner}")` } : undefined}
       >
+        {videoHero && (
+          <>
+            <VideoFondo url={videoHero.url} />
+            <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(48,14,21,0.45)_0%,#300e15_100%)]" />
+          </>
+        )}
         <Encabezado />
-        <h1 className={`${heroTitulo} top-[130px] h-[200px]`}>
+        <h1 className={`${heroTitulo} z-[2] top-[130px] h-[200px]`}>
           <span className={heroLineaChica}>Conoce a</span>
           <span className={heroLinea}>{nombre.toUpperCase()}</span>
         </h1>
@@ -42,6 +53,7 @@ export default function AcercaDe() {
               <p className={texto}>
                 {datos.texto_acerca || 'Muy pronto te contaremos nuestra historia.'}
               </p>
+              {videoNosotros && <VideoTarjeta url={videoNosotros.url} titulo={videoNosotros.titulo} />}
             </section>
             {/* Tarjeta "Visítanos": ubicación, enlace al mapa, WhatsApp y tabla de horarios (lunes primero). */}
             <section className={bloque}>

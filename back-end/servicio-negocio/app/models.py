@@ -1,6 +1,7 @@
 from datetime import datetime, time
 
-from sqlalchemy import Boolean, DateTime, SmallInteger, String, Text, Time, func
+from sqlalchemy import Boolean, DateTime, SmallInteger, String, Text, Time, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -25,6 +26,8 @@ class Negocio(Base):
     whatsapp: Mapped[str | None] = mapped_column(String(20))
     ubicacion: Mapped[str | None] = mapped_column(String(255))
     mapa_url: Mapped[str | None] = mapped_column(String(500))
+    # Videos subidos y dónde se muestran: [{"url", "ubicacion", "titulo"}] (ver schemas.VideoIn)
+    videos: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

@@ -1,7 +1,7 @@
 import heroCatalogo from '../assets/img/hero-catalogo.webp'
 import heroInicio from '../assets/img/hero-inicio.webp'
 import logoYade from '../assets/img/logo-yade.png'
-import { api, type Horario, type Negocio } from './api'
+import { api, type Horario, type Negocio, type UbicacionVideo } from './api'
 import { actualizarEnCache } from './cache'
 import { useDatos } from './useDatos'
 
@@ -64,6 +64,9 @@ export function useNegocio() {
     catalogoImagen: n?.catalogo_url || heroCatalogo,
     catalogoLineas: lineas(n?.texto_catalogo || CATALOGO_TEXTO_POR_DEFECTO),
     banner: n?.banner_url ?? null,
+    // Videos subidos en Configuración: el primero asignado a cada lugar (la sección de Inicio admite varios)
+    videoDe: (lugar: UbicacionVideo) => n?.videos?.find((v) => v.ubicaciones?.includes(lugar)) ?? null,
+    videosDe: (lugar: UbicacionVideo) => n?.videos?.filter((v) => v.ubicaciones?.includes(lugar)) ?? [],
   }
 }
 

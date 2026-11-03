@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -36,6 +37,31 @@ class HorarioOut(BaseModel):
         return DIAS[self.dia_semana]
 
 
+# Dónde se muestra un video; None = subido pero sin mostrar
+UbicacionVideo = Literal["hero_inicio", "seccion_inicio", "nosotros", "hero_acerca"]
+
+
+class VideoIn(BaseModel):
+    url: str = Field(max_length=500, pattern=r"^https?://")
+    # Un mismo video puede mostrarse en varios lugares a la vez; lista vacía = guardado sin mostrar
+    ubicaciones: list[UbicacionVideo] = Field(default_factory=list, max_length=4)
+    titulo: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compatibilidad(cls, datos):
+        """Acepta el formato anterior (`ubicacion` única) y quita lugares repetidos."""
+        if isinstance(datos, dict):
+            datos = dict(datos)
+            if "ubicacion" in datos:
+                antigua = datos.pop("ubicacion")
+                if not datos.get("ubicaciones") and antigua:
+                    datos["ubicaciones"] = [antigua]
+            if isinstance(datos.get("ubicaciones"), list):
+                datos["ubicaciones"] = list(dict.fromkeys(datos["ubicaciones"]))
+        return datos
+
+
 class NegocioUpdate(BaseModel):
     nombre: str | None = Field(default=None, max_length=100)
     logo_url: str | None = Field(default=None, max_length=500)
@@ -50,6 +76,7 @@ class NegocioUpdate(BaseModel):
     )
     ubicacion: str | None = Field(default=None, max_length=255)
     mapa_url: str | None = Field(default=None, max_length=500)
+    videos: list[VideoIn] | None = Field(default=None, max_length=12)
 
 
 class NegocioOut(BaseModel):
@@ -66,5 +93,6 @@ class NegocioOut(BaseModel):
     whatsapp: str | None
     ubicacion: str | None
     mapa_url: str | None
+    videos: list[VideoIn] = []
     updated_at: datetime
     horarios: list[HorarioOut] = []

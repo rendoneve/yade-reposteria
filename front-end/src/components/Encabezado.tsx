@@ -60,7 +60,6 @@ export default function Encabezado() {
             ? 'bg-tinto-oscuro/75 py-2 shadow-[0_10px_30px_rgba(20,6,9,0.28)] backdrop-blur-md backdrop-saturate-150'
             : 'bg-transparent pt-4 pb-2'
         }`}
-        style={{ viewTransitionName: 'encabezado' }}
       >
         <div className="relative mx-auto flex h-14 w-[min(1440px,calc(100%-48px))] items-center max-[760px]:w-[calc(100%-32px)]">
           <Link to="/" className="flex-none" aria-label="Inicio">

@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS negocio.negocio (
     whatsapp        VARCHAR(20),          -- ej. 5216681234567
     ubicacion       VARCHAR(255),         -- dirección escrita
     mapa_url        VARCHAR(500),         -- enlace de Google Maps (opcional)
+    videos          JSONB        NOT NULL DEFAULT '[]'::jsonb,  -- videos del sitio y dónde se muestran
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 

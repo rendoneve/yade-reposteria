@@ -86,6 +86,8 @@ ACTUALIZACIONES = [
     # Hero de la página Menú (catálogo), editable desde Configuración
     "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS catalogo_url VARCHAR(500)",
     "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS texto_catalogo TEXT",
+    # Videos del sitio y su ubicación (hero de inicio, sección de inicio, nosotros, hero de acerca de)
+    "ALTER TABLE negocio.negocio ADD COLUMN IF NOT EXISTS videos JSONB NOT NULL DEFAULT '[]'::jsonb",
 ]
 
 

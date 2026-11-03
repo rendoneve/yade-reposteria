@@ -4,7 +4,7 @@ import { Cargando, MensajeError } from '../../components/Estado'
 import TextoRico from '../../components/TextoRico'
 import SubirImagen from '../../components/SubirImagen'
 import { aplicarPeso, PESOS } from '../../lib/textoRico'
-import { api, resolverImagen, type CambioImagen, type Horario, type Negocio } from '../../lib/api'
+import { api, borrarVideo, ErrorApi, MAX_BYTES_VIDEO, resolverImagen, subirVideo, TIPOS_VIDEO, type CambioImagen, type Horario, type Negocio, type UbicacionVideo, type VideoSitio } from '../../lib/api'
 import { botonOscuro, campoAdmin, controlAdmin, errorAdmin, tarjetaCrema, tituloTarjetaAdmin } from '../../lib/estilos'
 import { CATALOGO_TEXTO_POR_DEFECTO, HERO_TEXTO_POR_DEFECTO, NOMBRE_POR_DEFECTO, useNegocio } from '../../lib/negocio'
 
@@ -53,6 +53,8 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardado, setGuardado] = useState(false)
+  const [videos, setVideos] = useState<VideoSitio[]>(() => negocio.videos ?? [])
+  const [videosQuitados, setVideosQuitados] = useState<string[]>([]) // se borran del almacenamiento al guardar
 
   useEffect(() => {
     if (!guardado) return
@@ -100,6 +102,7 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
           whatsapp: textoONull(f.get('whatsapp'))?.replace(/[\s()-]/g, '') ?? null,
           ubicacion: textoONull(f.get('ubicacion')),
           mapa_url: textoONull(f.get('mapa_url')),
+          videos: videos.map((v) => ({ url: v.url, ubicaciones: v.ubicaciones, titulo: v.titulo?.trim() || null })),
         },
       })
       actualizar({ ...nuevo, horarios: nuevosHorarios })
@@ -109,6 +112,8 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
       setBanner(undefined)
       setCatalogo(undefined)
       setGuardado(true)
+      videosQuitados.forEach((u) => void borrarVideo(u))
+      setVideosQuitados([])
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -185,6 +190,15 @@ function FormNegocio({ negocio }: { negocio: Negocio }) {
       </div>
 
       {/* TARJETA HORARIOS: días abiertos y horas. De aquí salen la agenda de citas y el "abierto ahora" del inicio. */}
+      {/* TARJETA VIDEOS: sube videos (hasta 40 MB) y elige en qué parte del sitio se ven. Se guardan con el botón de abajo. */}
+      <Seccion titulo="Videos">
+        <VideosConfig
+          videos={videos}
+          onChange={setVideos}
+          onQuitar={(url) => setVideosQuitados((q) => [...q, url])}
+        />
+      </Seccion>
+
       <Seccion titulo="Horarios">
         <ul className="flex flex-col">
           {horarios.map((h) => (
@@ -277,6 +291,111 @@ function CampoTitulo({ nombre, filas, inicial, placeholder, nota }: { nombre: st
       <div className="rounded-lg bg-tinto-oscuro px-4 py-3 font-titulo text-2xl leading-tight font-bold text-beige [font-variant-caps:all-small-caps]" aria-label="Vista previa">
         {(valor.trim() || placeholder).split('\n').map((l, i) => <span key={i} className="block"><TextoRico texto={l} /></span>)}
       </div>
+    </div>
+  )
+}
+
+const UBICACIONES: { valor: UbicacionVideo; texto: string }[] = [
+  { valor: 'hero_inicio', texto: 'Encabezado de la página principal (de fondo)' },
+  { valor: 'seccion_inicio', texto: 'Página principal: sección "Nuestros postres en video"' },
+  { valor: 'nosotros', texto: 'Acerca de: dentro de "Nuestra historia"' },
+  { valor: 'hero_acerca', texto: 'Acerca de: encabezado (de fondo)' },
+]
+// Estos lugares muestran un solo video; la sección de la página principal admite hasta 3
+const UNICOS: UbicacionVideo[] = ['hero_inicio', 'nosotros', 'hero_acerca']
+
+/* Videos del sitio: se suben aquí (MP4, WEBM o MOV de hasta 40 MB) y para cada uno se elige dónde se ve.
+   Los cambios se aplican al pulsar "Guardar cambios". */
+function VideosConfig({ videos, onChange, onQuitar }: { videos: VideoSitio[]; onChange: (v: VideoSitio[]) => void; onQuitar: (url: string) => void }) {
+  const entrada = useRef<HTMLInputElement>(null)
+  const [subiendo, setSubiendo] = useState<{ nombre: string; avance: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const subir = async (archivo: File) => {
+    setError(null)
+    if (!TIPOS_VIDEO.includes(archivo.type)) return setError('Formato no permitido. Usa MP4, WEBM o MOV.')
+    if (archivo.size > MAX_BYTES_VIDEO) return setError('El video pesa más de 40 MB. Comprímelo o recórtalo antes de subirlo.')
+    if (videos.length >= 12) return setError('Ya hay 12 videos. Quita alguno para subir otro.')
+    setSubiendo({ nombre: archivo.name, avance: 0 })
+    try {
+      const url = await subirVideo(archivo, (avance) => setSubiendo({ nombre: archivo.name, avance }))
+      onChange([...videos, { url, ubicaciones: [], titulo: null }])
+    } catch (e) {
+      setError(e instanceof ErrorApi || e instanceof Error ? e.message : 'No se pudo subir el video')
+    } finally {
+      setSubiendo(null)
+      if (entrada.current) entrada.current.value = ''
+    }
+  }
+
+  const cambiar = (i: number, cambio: Partial<VideoSitio>) =>
+    onChange(videos.map((v, j) => (j === i ? { ...v, ...cambio } : v)))
+
+  // Marca o desmarca un lugar. Un video puede estar en varios; los lugares de video único
+  // (encabezados y "nosotros") se le quitan al video que los tuviera antes.
+  const alternarLugar = (i: number, lugar: UbicacionVideo, puesto: boolean) =>
+    onChange(
+      videos.map((v, j) => {
+        if (j === i) return { ...v, ubicaciones: puesto ? [...v.ubicaciones, lugar] : v.ubicaciones.filter((u) => u !== lugar) }
+        return puesto && UNICOS.includes(lugar) ? { ...v, ubicaciones: v.ubicaciones.filter((u) => u !== lugar) } : v
+      }),
+    )
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className={ayuda}>
+        Sube tus videos y elige dónde se ven. Los de fondo se reproducen solos, sin sonido y en bucle; los demás tienen controles.
+        Recomendado: MP4 (H.264), horizontal y corto (10–30 s) para que cargue rápido.
+      </p>
+      {videos.length === 0 && !subiendo && <p className="font-texto text-[15px] text-texto-secundario">Todavía no hay videos.</p>}
+      <ul className="grid grid-cols-2 gap-4 max-[1200px]:grid-cols-1">
+        {videos.map((v, i) => (
+          <li key={v.url} className="flex flex-col gap-2.5 rounded-xl bg-white/60 p-3">
+            <video className="aspect-video w-full rounded-lg bg-black object-contain" src={v.url} controls preload="metadata" playsInline />
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="mb-1 font-ui text-[13px] font-semibold text-tinto-texto">Dónde se muestra (puedes elegir varios)</legend>
+              {UBICACIONES.map((u) => (
+                <label key={u.valor} className="flex cursor-pointer items-center gap-2 font-texto text-[14px] text-tinto-texto">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-tinto"
+                    checked={v.ubicaciones.includes(u.valor)}
+                    onChange={(e) => alternarLugar(i, u.valor, e.target.checked)}
+                  />
+                  {u.texto}
+                </label>
+              ))}
+              {v.ubicaciones.length === 0 && <span className={ayuda}>Sin lugar elegido: queda guardado pero no se ve en el sitio.</span>}
+            </fieldset>
+            {(v.ubicaciones.includes('seccion_inicio') || v.ubicaciones.includes('nosotros')) && (
+              <label className={campoAdmin}>
+                Título (opcional)
+                <input className={controlAdmin} maxLength={100} value={v.titulo ?? ''} onChange={(e) => cambiar(i, { titulo: e.target.value })} placeholder="Ej. Así preparamos nuestros pasteles" />
+              </label>
+            )}
+            <button
+              type="button"
+              className="self-start font-ui text-[13px] font-semibold text-error hover:underline"
+              onClick={() => { onQuitar(v.url); onChange(videos.filter((_, j) => j !== i)) }}
+            >
+              Quitar video
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-3">
+        <input ref={entrada} type="file" accept={TIPOS_VIDEO.join(',')} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void subir(f) }} />
+        <button type="button" className={`${botonOscuro} px-6`} disabled={!!subiendo} onClick={() => entrada.current?.click()}>
+          {subiendo ? 'Subiendo…' : 'Subir video'}
+        </button>
+        {subiendo && (
+          <div className="flex min-w-[200px] flex-1 flex-col gap-1" role="status">
+            <span className="truncate font-texto text-[13px] text-texto-secundario">{subiendo.nombre} · {Math.round(subiendo.avance * 100)}%</span>
+            <progress className="h-2 w-full accent-tinto" max={1} value={subiendo.avance} />
+          </div>
+        )}
+      </div>
+      {error && <p className={errorAdmin} role="alert">{error}</p>}
     </div>
   )
 }

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     # reenviarlo, así que sin tope cualquiera podría llenarle la memoria. Las imágenes tienen el suyo.
     max_cuerpo_bytes: int = 256 * 1024
     max_cuerpo_imagenes_bytes: int = 6 * 1024 * 1024  # el servicio de catálogo acepta 5 MB por imagen
+    max_cuerpo_videos_bytes: int = 41 * 1024 * 1024  # el servicio de catálogo acepta 40 MB por video
+    timeout_videos: float = 120.0  # subir un video al bucket tarda más que una petición normal
 
     @property
     def lista_cors(self) -> list[str]:

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import Avisos from './components/Avisos'
 import { Cargando } from './components/Estado'
 import { ProveedorSesion } from './lib/auth'
-import { fondoLogin } from './lib/estilos'
+import { pagina } from './lib/estilos'
 import { useNegocio } from './lib/negocio'
 import { useRuta, useTitulo } from './lib/router'
 import { useSesion } from './lib/sesion'
@@ -66,7 +66,7 @@ export default function App() {
 
   return (
     <ProveedorSesion>
-      <Suspense fallback={<div className={fondoLogin}><Cargando /></div>}>
+      <Suspense fallback={<div className={`${pagina} items-center justify-center`}><Cargando /></div>}>
         <Rutas />
       </Suspense>
       <Avisos />
@@ -97,7 +97,7 @@ function Rutas() {
 /* Panel del cliente: sin sesión muestra el inicio de sesión ahí mismo y, al entrar, la página pedida. */
 function RutasCuenta({ path }: { path: string }) {
   const { usuario, cargando } = useSesion()
-  if (cargando) return <div className={fondoLogin}><Cargando /></div>
+  if (cargando) return <div className={`${pagina} items-center justify-center`}><Cargando /></div>
   if (!usuario) return <Entrar />
   switch (path) {
     case '/cuenta/citas': return <MisCitas />
@@ -109,7 +109,7 @@ function RutasCuenta({ path }: { path: string }) {
 // Panel del administrador: sin sesión de admin se muestra el Login del panel; con sesión, la pantalla pedida.
 function RutasAdmin({ path }: { path: string }) {
   const { usuario, cargando } = useSesion()
-  if (cargando) return <div className={fondoLogin}><Cargando /></div>
+  if (cargando) return <div className={`${pagina} items-center justify-center`}><Cargando /></div>
   if (!usuario || usuario.rol !== 'admin') return <Login />
   if (path.startsWith('/admin/productos')) return <Productos />
   switch (path) {

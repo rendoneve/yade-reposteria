@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.core.database import actualizar_tablas
 from app.core.errores import registrar_manejadores
-from app.routers import categorias, etiquetas, imagenes, productos, resenas
+from app.routers import categorias, etiquetas, imagenes, productos, resenas, videos
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +19,7 @@ app.include_router(productos.router)
 app.include_router(etiquetas.router)
 app.include_router(resenas.router)
 app.include_router(imagenes.router)
+app.include_router(videos.router)
 
 
 @app.get("/health", tags=["Salud"])

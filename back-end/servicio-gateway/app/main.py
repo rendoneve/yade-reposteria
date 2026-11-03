@@ -4,7 +4,7 @@
 
     auth, usuarios                            -> servicio-auth
     categorias, productos, etiquetas, resenas,
-    imagenes                                  -> servicio-catalogo
+    imagenes, videos                          -> servicio-catalogo
     citas                                     -> servicio-citas
     negocio, horarios                         -> servicio-negocio
     actividades, estadisticas                 -> servicio-actividad
@@ -41,6 +41,7 @@ RUTAS = {
     "etiquetas": "catalogo",
     "resenas": "catalogo",
     "imagenes": "catalogo",
+    "videos": "catalogo",
     "citas": "citas",
     "negocio": "negocio",
     "horarios": "negocio",
@@ -100,7 +101,10 @@ def _revisar_limite(request: Request, recurso: str, resto: str) -> None:
 
 async def _leer_cuerpo(request: Request, recurso: str) -> bytes:
     """Lee el cuerpo con tope de tamaño: se corta en cuanto se pasa, sin cargarlo completo."""
-    maximo = settings.max_cuerpo_imagenes_bytes if recurso == "imagenes" else settings.max_cuerpo_bytes
+    maximo = {
+        "imagenes": settings.max_cuerpo_imagenes_bytes,
+        "videos": settings.max_cuerpo_videos_bytes,
+    }.get(recurso, settings.max_cuerpo_bytes)
     demasiado = HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "El contenido enviado es demasiado grande")
     declarado = request.headers.get("content-length")
     if declarado and declarado.isdigit() and int(declarado) > maximo:
@@ -198,7 +202,8 @@ async def _reenviar(request: Request, recurso: str, resto: str) -> Response:
     for intento in range(2):
         try:
             r = await request.app.state.http.request(
-                request.method, destino, params=request.query_params, headers=cabeceras, content=cuerpo
+                request.method, destino, params=request.query_params, headers=cabeceras, content=cuerpo,
+                timeout=settings.timeout_videos if recurso == "videos" else httpx.USE_CLIENT_DEFAULT,
             )
         except httpx.TimeoutException:
             log.warning("Timeout al reenviar %s %s a servicio-%s", request.method, request.url.path, servicio)

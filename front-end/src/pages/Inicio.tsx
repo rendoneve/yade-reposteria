@@ -2,6 +2,9 @@ import { useState } from 'react'
 import BarraConfianza from '../components/BarraConfianza'
 import ComoFunciona from '../components/ComoFunciona'
 import DetalleProducto from '../components/DetalleProducto'
+import { VideoFondo } from '../components/Videos'
+import { puedeAutoplay } from '../lib/videos'
+import SeccionVideos from '../components/SeccionVideos'
 import TextoRico from '../components/TextoRico'
 import Encabezado from '../components/Encabezado'
 import { EsqueletoPostres, MensajeError, Vacio } from '../components/Estado'
@@ -20,8 +23,10 @@ const cargarDestacados = () => api<Producto[]>('/productos/destacados', { params
 
 /* PAGINA PRINCIPAL (Figma 1:2) */
 export default function Inicio() {
-  const { heroPropio, heroImagen, heroLineas, cargando: cargandoNegocio } = useNegocio()
-  // "Especiales del mes": los más vendidos, completados con los más recientes (lo resuelve el backend)
+  const { heroPropio, heroImagen, heroLineas, videoDe, cargando: cargandoNegocio } = useNegocio()
+  // Video de portada (si el administrador lo eligió): sustituye a la foto o ilustración
+  const videoHero = puedeAutoplay() ? videoDe('hero_inicio') : null
+  // "Especiales del mes": los más vendidos o, si no hay, los más recientes (lo resuelve el backend)
   const { datos, error, cargando, recargar } = useDatos('productos:destacados', cargarDestacados)
   const [viendo, setViendo] = useState<Producto | null>(null)
 
@@ -31,7 +36,12 @@ export default function Inicio() {
       <section className={`${hero} ${degradadoHero} z-1 h-[620px] max-[760px]:overflow-hidden`}>
         {/* Primera visita: mientras llega /negocio no se muestra la imagen ni el texto del diseño,
             para que no cambien a los pocos segundos por los del negocio */}
-        {cargandoNegocio ? null : heroPropio ? (
+        {cargandoNegocio ? null : videoHero ? (
+          <>
+            <VideoFondo url={videoHero.url} />
+            <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(to_bottom_right,#2C1217_0%,transparent_75%)]" />
+          </>
+        ) : heroPropio ? (
           <>
             {/* Foto que subió el negocio: a todo lo ancho, con degradado para que se lea el texto */}
             <img
@@ -104,6 +114,8 @@ export default function Inicio() {
 
         {/* ÁREA 4 · CATEGORÍAS: mosaico con enlace directo al menú filtrado por categoría. */}
         <SeccionCategorias />
+        {/* ÁREA 4B · VIDEOS: solo aparece si en Configuración se asignó algún video a "Sección de Inicio". */}
+        <SeccionVideos />
         {/* ÁREA 5 · "ASÍ DE FÁCIL": pasos para pedir (elegir, agendar, recoger). */}
         <ComoFunciona />
         {/* ÁREA 6 · RESEÑAS: carrusel de opiniones aprobadas por el admin y calificación general. */}

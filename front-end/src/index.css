@@ -20,7 +20,7 @@
   --color-exito: #2f6b4f;
   --color-error: #a3333d;
 
-  --font-titulo: "Playfair Display", Georgia, serif;
+  --font-titulo: "Cormorant Garamond", Georgia, serif;
   --font-ui: "Montserrat", system-ui, sans-serif;
   --font-texto: "Barlow", system-ui, sans-serif;
 
@@ -59,25 +59,6 @@
 
 /* ---------- Movimiento ----------
    Todo se apaga con "reducir movimiento" del sistema (al final del archivo). */
-
-/* Cambio de pantalla (View Transitions, ver navegar() en lib/router.ts): la página vieja se desvanece
-   y la nueva entra subiendo un poco. El encabezado fijo no se mueve. */
-::view-transition-old(root) {
-  animation: 180ms var(--ease-suave) both desvanecer;
-}
-::view-transition-new(root) {
-  animation: 320ms var(--ease-suave) both entrar-subiendo;
-}
-::view-transition-group(encabezado) {
-  animation: none;
-}
-
-@keyframes desvanecer {
-  to { opacity: 0; }
-}
-@keyframes entrar-subiendo {
-  from { opacity: 0; transform: translateY(14px); }
-}
 
 /* Aparece al entrar en pantalla mientras se hace scroll (sin JavaScript). Si el navegador no lo
    soporta, el contenido simplemente se ve. */
@@ -141,10 +122,5 @@ dialog.modal::backdrop {
     scroll-behavior: auto !important;
   }
   .aparecer { animation: none; }
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
 }
 
