@@ -1,5 +1,5 @@
-import { X } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Encabezado from '../components/Encabezado'
 import Link from '../components/Link'
 import Pie from '../components/Pie'
@@ -55,9 +55,18 @@ function primerDiaAbierto(horarios: Horario[] | undefined): string {
   return ymd(d)
 }
 
+function diaAbierto(fecha: string, horarios: Horario[] | undefined): boolean {
+  if (!horarios?.some((h) => !h.cerrado)) return true
+  const dia = new Date(`${fecha}T00:00:00`).getDay()
+  return horarios.some((h) => h.dia_semana === dia && !h.cerrado)
+}
+
 const hora = (h: string | null) => (h ? h.slice(0, 5) : '')
 // "2026-10-30T10:30:00-07:00" -> "10:30" (la hora local del negocio, tal como la manda el servidor)
 const horaDeIso = (iso: string) => iso.slice(11, 16)
+const formatoMes = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' })
+const formatoFechaSelector = new Intl.DateTimeFormat('es-MX', { dateStyle: 'short' })
+const DIAS_CALENDARIO = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
 const tarjetaForm = `${tarjetaCrema} flex flex-col gap-4 px-[34px] py-8 max-[560px]:px-5`
 const chipHora =
@@ -78,7 +87,14 @@ export default function AgendarCita() {
   const [elegidos, setElegidos] = useState<number[]>(() => (idsLista.length ? idsLista : idProducto ? [idProducto] : []))
 
   const [fechaElegida, setFecha] = useState<string | null>(null)
-  const fecha = fechaElegida ?? primerDiaAbierto(negocio?.horarios)
+  const fecha = fechaElegida && diaAbierto(fechaElegida, negocio?.horarios)
+    ? fechaElegida
+    : primerDiaAbierto(negocio?.horarios)
+  const fechaVisible = new Date(`${fecha}T00:00:00`)
+  const [desplazamientoMes, setDesplazamientoMes] = useState(0)
+  const [calendarioAbierto, setCalendarioAbierto] = useState(false)
+  const calendarioRef = useRef<HTMLDivElement>(null)
+  const mesVisible = new Date(fechaVisible.getFullYear(), fechaVisible.getMonth() + desplazamientoMes, 1)
   const [inicio, setInicio] = useState<string | null>(null) // franja elegida (ISO del servidor)
   // Solo vale si es del día que se ve: el día puede cambiar solo (al llegar los horarios del negocio)
   // y no se debe agendar una hora de otro día que quedó elegida
@@ -93,6 +109,32 @@ export default function AgendarCita() {
   const minimo = ymd(hoy)
   const maximo = ymd(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + DIAS_MAXIMOS))
   const sinHorarios = agenda.datos?.configurado === false
+  const horarios = negocio ? [...negocio.horarios].sort((a, b) => ((a.dia_semana + 6) % 7) - ((b.dia_semana + 6) % 7)) : []
+  const primerDiaMes = new Date(mesVisible.getFullYear(), mesVisible.getMonth(), 1)
+  const diasDelMes = new Date(mesVisible.getFullYear(), mesVisible.getMonth() + 1, 0).getDate()
+  const celdasCalendario: (Date | null)[] = [
+    ...Array.from({ length: (primerDiaMes.getDay() + 6) % 7 }, () => null),
+    ...Array.from({ length: diasDelMes }, (_, i) => new Date(mesVisible.getFullYear(), mesVisible.getMonth(), i + 1)),
+  ]
+  const primerMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  const ultimoDiaPermitido = new Date(`${maximo}T00:00:00`)
+  const ultimoMes = new Date(ultimoDiaPermitido.getFullYear(), ultimoDiaPermitido.getMonth(), 1)
+
+  useEffect(() => {
+    if (!calendarioAbierto) return
+    const cerrarAlHacerClicFuera = (e: PointerEvent) => {
+      if (e.target instanceof Node && !calendarioRef.current?.contains(e.target)) setCalendarioAbierto(false)
+    }
+    const cerrarConEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCalendarioAbierto(false)
+    }
+    document.addEventListener('pointerdown', cerrarAlHacerClicFuera)
+    document.addEventListener('keydown', cerrarConEscape)
+    return () => {
+      document.removeEventListener('pointerdown', cerrarAlHacerClicFuera)
+      document.removeEventListener('keydown', cerrarConEscape)
+    }
+  }, [calendarioAbierto])
 
   const enviar = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -140,8 +182,6 @@ export default function AgendarCita() {
   const nombreCategoria = catalogo.datos?.find((p) => p.id === (idsLista[0] ?? idProducto))?.categoria_nombre
   const tipoInicial = nombreCategoria ? (servicioDe(nombreCategoria) ?? nombreCategoria) : 'pasteles'
   const whatsapp = negocio?.whatsapp?.replace(/\D/g, '')
-  // Lunes primero
-  const horarios = negocio ? [...negocio.horarios].sort((a, b) => ((a.dia_semana + 6) % 7) - ((b.dia_semana + 6) % 7)) : []
 
   return (
     <div className={pagina}>
@@ -192,14 +232,80 @@ export default function AgendarCita() {
                   ver esta cita en tu panel, cancelarla y dejar tu reseña cuando termine.
                 </p>
               )}
-              {/* DÍA: fecha entre mañana y el máximo permitido; al cambiarla se vuelve a consultar la disponibilidad. */}
-              <label className={campoPublico}>
-                Día
-                <input
-                  className={controlPublico} name="dia" type="date" required min={minimo} max={maximo} value={fecha}
-                  onChange={(e) => { if (e.target.value) { setFecha(e.target.value); setInicio(null) } }}
-                />
-              </label>
+              {/* DÍA: los días en que el negocio está cerrado no se pueden seleccionar. */}
+              <fieldset className={campoPublico}>
+                <legend>Día</legend>
+                <div className="relative" ref={calendarioRef}>
+                  <button
+                    type="button"
+                    className={`${controlPublico} flex w-full items-center justify-between text-left`}
+                    aria-haspopup="dialog"
+                    aria-expanded={calendarioAbierto}
+                    onClick={() => setCalendarioAbierto((abierto) => !abierto)}
+                  >
+                    <span>{formatoFechaSelector.format(fechaVisible)}</span>
+                    <CalendarDays size={20} aria-hidden="true" />
+                  </button>
+                  {calendarioAbierto && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-[272px] rounded-lg border border-rosa-vino bg-white p-3 shadow-modal" role="dialog" aria-label="Selecciona un día">
+                      <div className="mb-3 flex items-center justify-between">
+                        <button
+                          type="button"
+                          className="grid size-9 place-items-center rounded-lg text-tinto-texto enabled:hover:bg-beige disabled:opacity-40"
+                          aria-label="Mes anterior"
+                          disabled={mesVisible <= primerMes}
+                          onClick={() => setDesplazamientoMes((mes) => mes - 1)}
+                        >
+                          <ChevronLeft size={20} aria-hidden="true" />
+                        </button>
+                        <span className="font-ui text-[15px] font-semibold capitalize text-tinto-texto">
+                          {formatoMes.format(mesVisible)}
+                        </span>
+                        <button
+                          type="button"
+                          className="grid size-9 place-items-center rounded-lg text-tinto-texto enabled:hover:bg-beige disabled:opacity-40"
+                          aria-label="Mes siguiente"
+                          disabled={mesVisible >= ultimoMes}
+                          onClick={() => setDesplazamientoMes((mes) => mes + 1)}
+                        >
+                          <ChevronRight size={20} aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center">
+                        {DIAS_CALENDARIO.map((dia, i) => (
+                          <span key={`${dia}-${i}`} className="py-1 font-ui text-xs font-semibold text-texto-secundario">
+                            {dia}
+                          </span>
+                        ))}
+                        {celdasCalendario.map((dia, i) => {
+                          if (!dia) return <span key={`vacio-${i}`} aria-hidden="true" />
+                          const fechaDia = ymd(dia)
+                          const fueraDeRango = fechaDia < minimo || fechaDia > maximo
+                          const cerrado = !diaAbierto(fechaDia, negocio?.horarios)
+                          return (
+                            <button
+                              key={fechaDia}
+                              type="button"
+                              className="aspect-square rounded-lg font-texto text-sm text-tinto-texto transition-colors enabled:hover:bg-beige aria-pressed:bg-tinto aria-pressed:text-white disabled:cursor-not-allowed disabled:text-texto-secundario/40 disabled:line-through"
+                              disabled={fueraDeRango || cerrado}
+                              aria-pressed={fecha === fechaDia}
+                              aria-label={`${dia.getDate()} ${formatoMes.format(dia)}${cerrado ? ', cerrado' : ''}`}
+                              onClick={() => {
+                                setFecha(fechaDia)
+                                setInicio(null)
+                                setDesplazamientoMes(0)
+                                setCalendarioAbierto(false)
+                              }}
+                            >
+                              {dia.getDate()}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </fieldset>
 
               {/* HORA: cuadrícula de horas libres que llega del servidor (/citas/disponibilidad). Las ocupadas salen deshabilitadas. */}
               <fieldset className={campoPublico}>
