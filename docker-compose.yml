@@ -1,0 +1,108 @@
+# Levanta todo el proyecto con:  docker compose up --build
+# La base de datos sigue en Neon (en la nube), por eso no hay contenedor de PostgreSQL.
+name: yade-reposteria
+
+# ---------------------------------------------------------------------------
+# Configuración común de los 6 servicios de Python.
+# Se define una vez aquí (&servicio-python) y se reutiliza abajo (<<: *servicio-python).
+# ---------------------------------------------------------------------------
+x-servicio-python: &servicio-python
+  env_file: ./back-end/.env # DATABASE_URL, JWT_SECRET, INTERNAL_API_KEY, S3_*...
+  environment:
+    # Dentro de Docker cada servicio se encuentra por su NOMBRE, no por 127.0.0.1,
+    # y todos escuchan en el puerto 8000 de su propio contenedor.
+    # Estos valores le ganan a los del .env, así que no hay que tocarlo.
+    AUTH_SERVICE_URL: http://auth:8000
+    CATALOGO_SERVICE_URL: http://catalogo:8000
+    CITAS_SERVICE_URL: http://citas:8000
+    NEGOCIO_SERVICE_URL: http://negocio:8000
+    ACTIVIDAD_SERVICE_URL: http://actividad:8000
+  healthcheck:
+    # Docker pregunta cada 15 s a /health si el servicio está vivo
+    test:
+      [
+        "CMD",
+        "python",
+        "-c",
+        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)",
+      ]
+    interval: 15s
+    timeout: 5s
+    start_period: 20s
+    retries: 3
+  restart: unless-stopped # si se cae, Docker lo vuelve a levantar
+
+services:
+  # ---------------- Servicios internos (no se publican a internet) ----------------
+  auth:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-auth # carpeta con el código del servicio
+      dockerfile: ../Dockerfile # el Dockerfile común de back-end
+    ports:
+      - "127.0.0.1:8001:8000" # solo para ver /docs desde tu computadora
+
+  catalogo:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-catalogo
+      dockerfile: ../Dockerfile
+    ports:
+      - "127.0.0.1:8002:8000"
+
+  citas:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-citas
+      dockerfile: ../Dockerfile
+    ports:
+      - "127.0.0.1:8003:8000"
+
+  negocio:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-negocio
+      dockerfile: ../Dockerfile
+    ports:
+      - "127.0.0.1:8004:8000"
+
+  actividad:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-actividad
+      dockerfile: ../Dockerfile
+    ports:
+      - "127.0.0.1:8005:8000"
+
+  # ---------------- API Gateway: la única puerta de entrada a la API ----------------
+  gateway:
+    <<: *servicio-python
+    build:
+      context: ./back-end/servicio-gateway
+      dockerfile: ../Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on: # no arranca hasta que los 5 respondan en /health
+      auth:
+        condition: service_healthy
+      catalogo:
+        condition: service_healthy
+      citas:
+        condition: service_healthy
+      negocio:
+        condition: service_healthy
+      actividad:
+        condition: service_healthy
+
+  # ---------------- Front-end (Vite compilado + Nginx) ----------------
+  front-end:
+    build:
+      context: ./front-end
+      args:
+        # La usa el NAVEGADOR, por eso es localhost:8000 (el gateway publicado arriba)
+        VITE_API_URL: http://localhost:8000/api
+    ports:
+      - "5173:80" # mismo puerto que en desarrollo: el CORS ya lo permite
+    depends_on:
+      - gateway
+    restart: unless-stopped
