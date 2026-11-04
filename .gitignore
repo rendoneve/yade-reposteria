@@ -5,6 +5,7 @@
 .venv/
 venv/
 node_modules/
+*.pem
 
 # Python
 __pycache__/

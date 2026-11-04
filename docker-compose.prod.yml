@@ -1,0 +1,30 @@
+# Se usa JUNTO con docker-compose.yml, solo en el servidor:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data          # aquí guarda los certificados HTTPS
+    depends_on:
+      - gateway
+      - front-end
+    restart: unless-stopped
+
+  # En producción nadie entra directo al gateway ni al front-end: todo pasa por Caddy
+  gateway:
+    ports: !reset []
+
+  front-end:
+    ports: !reset []
+    build:
+      args:
+        VITE_API_URL: https://${DOMINIO}/api
+
+volumes:
+  caddy_datos:
